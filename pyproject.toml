@@ -1,0 +1,39 @@
+# build-system tells python how to package your project.
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+# project metadata block is used to describe your project and its dependencies. It includes but not limited to the project name, version, description, authors, license, minimum python version and dependencies.
+[project]
+name = "blackbox-void"
+version = "0.1.0"
+description = "A cross-platform Python CLI for creating encrypted vaults and protecting your files."
+requires-python = ">=3.9"
+license = { text = "MIT" }
+
+# dependencies block is used to specify the dependencies required for your project to run. It includes both direct and indirect dependencies.
+dependencies = [
+    "argon2-cffi==25.1.0",
+    "click==8.4.2",
+    "cryptography==50.0.0",
+    "rich==15.0.0"
+]
+
+# optional-dependencies block defines extra dependency groups that aren't installed by default but can be installed with the optional feature. It includes but not limited to testing, documentation, and development dependencies.
+# "dev" group = tools contributors need to build/test the project, not needed to just run it.
+# Installed with: pip install .[dev]
+[project.optional-dependencies]
+dev = [
+    "pyinstaller>=6.3",
+    "pytest>=8.0",
+    "pytest-cov>=4.1",
+]
+
+# project.scripts block is used to define command-line scripts that can be executed from the terminal. It includes but not limited to the script name and the entry point function.
+# It is the one that makes blackbox a real terminal command
+[project.scripts]
+blackbox = "blackbox.cli:main"
+
+#setuptools block is used to specify additional configuration options for setuptools, the build system used to package your project. It includes but not limited to the package directory, package data, and entry points.
+[tool.setuptools.packages.find]
+where = ["src"]

@@ -1,0 +1,13 @@
+# Pull in evrything from requirements.txt first
+# Dev environment needs the app to run too, not just build it
+
+-r requirements.txt
+
+pyinstaller>=6.3
+# Packages the app into a double-clickable .exe/ .app/ binary for distribution. This is not needed for development, but is needed to build the app for distribution.
+
+pytest>=8.0
+# Runs the test suite (test_crypto.py, test_vault.py etc.) to ensure the app is working correctly. This is not needed for development, but is needed to run the test suite.
+
+pytest-cov>=4.1
+# Reports what % of code the test actually covers. This is not needed for development, but is needed to run the test suite.
