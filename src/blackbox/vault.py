@@ -130,3 +130,35 @@ def _secure_delete_folder(folder_path: Path, passes: int = DEFAULT_SECURE_DELETE
         for dirname in dirs:
             (root_path / dirname).rmdir()
     folder_path.rmdir()
+
+# --- Sealed file writing ----
+
+def _write_sealed_vault(
+        output_path: Path,
+        salt: bytes,
+        nonce: bytes,
+        ciphertext: bytes,
+        original_name: str,
+) -> None:
+    """
+    Write the header + ciphertext to a single sealed .vault file.
+    """
+    header = {
+        "format_version": FORMAT_VERSION,
+        "salt": base64.b64encode(salt).decode("ascii"),
+        "nonce": base64.b64encode(nonce).decode("ascii"),
+        "kdf": {
+            "algorithm" : "argon2id",
+            "time_cost" : TIME_COST,
+            "memory_cost" : MEMORY_COST,
+            "parallelism" : PARALLELISM,
+        },
+        "original_name" : original_name,
+
+    }
+    header_bytes = json.dumps(header).encode("utf-8")
+
+    with open(output_path, "wb") as f:
+        f.write(struct.pack(">I", len(header_bytes)))
+        f.write(header_bytes)
+        f.write(ciphertext)
