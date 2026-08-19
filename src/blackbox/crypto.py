@@ -32,7 +32,7 @@ from argon2.low_level import Type, hash_secret_raw
 
 SALT_SIZE = 16 # bytes - 128 bits, standard for Argon2
 KEY_SIZE = 32 # bytes - 256 bits, required by AES-256
-TINE_COST = 3 #number of iterations
+TIME_COST = 3 #number of iterations
 MEMORY_COST = 65536 # KiB (= 64 MB) of RAM required per attempt
 PARALLELISM = 4 # number of parallel threads/lanes
 
