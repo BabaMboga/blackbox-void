@@ -47,7 +47,8 @@ from blackbox.crypto import (
     MEMORY_COST,
     PARALLELISM,
     TIME_COST,
-    new_key_material
+    new_key_material,
+    rederive_key
 )
 
 # --- Format Constants ----
@@ -234,3 +235,90 @@ def lock(
         _secure_delete_folder(folder_path, passes=passes)
 
     return output_path
+
+def _read_sealed_vault(vault_path: Path) -> tuple[dict,bytes]:
+    """
+    Read a sealed .vault file and split it into its header dict and raw 
+    ciphertext bytes.
+    """
+
+    with open(vault_path, "rb") as f:
+        header_len = struct.unpack(">I", f.read(4))[0]
+        header = json.loads(f.read(header_len))
+        ciphertext = f.read()
+    return header, ciphertext
+
+def unlock(
+        vault_path: str | Path,
+        password: str,
+        output_dir: str | Path | None = None,
+        delete_vault_file: bool = True,
+) -> Path:
+    """
+    Decrypt a sealed .vault file back into its original folder.
+ 
+    This is the reverse of lock(): a .vault file and a correct password
+    go in, the restored folder comes out. A wrong password fails loudly
+    (InvalidTag, via GCM's built-in authentication) rather than
+    producing corrupted output — there is no such thing as a "partial"
+    or "garbled" unlock with this scheme.
+ 
+    Args:
+        vault_path: path to the .vault file to unlock.
+        password: the password used when the vault was locked.
+        output_dir: where to restore the folder. Defaults to the same
+            directory the .vault file lives in.
+        delete_vault_file: if True (default), remove the .vault file
+            after a successful restore — enforces the rule that a
+            given vault is either "a folder" or "a .vault file," never
+            both at once. Set False to keep the sealed file as a backup.
+ 
+    Returns:
+        The path to the restored folder.
+ 
+    Raises:
+        VaultError: if vault_path doesn't exist, or the restored folder
+            would overwrite an existing one.
+        cryptography.exceptions.InvalidTag: if the password is wrong or
+            the vault file has been tampered with / corrupted.
+    """
+
+    vault_path = Path(vault_path).resolve()
+
+    if not vault_path.exists():
+        raise VaultError(f"'{vault_path}' does not exist.")
+
+    header, ciphertext = _read_sealed_vault(vault_path)
+
+    salt = base64.b64decode(header["salt"])
+    nonce = base64.b64decode(header["nonce"])
+    original_name = header["original_name"]
+
+    key = rederive_key(password, salt)
+
+    #  InvalidTag propagates naturally here on wrong password / tampering - 
+    #  deliberatelynot caught, so callers get a clear, specific signal
+    #  rather than a silently "succcessful" bad decryption.
+
+    aesgcm = AESGCM(key)
+    archive_bytes = aesgcm.decrypt(nonce, ciphertext, associated_data=None)
+
+    if output_dir is None:
+        output_dir = vault_path.parent
+    else:
+        output_dir = Path(output_dir)
+
+    restored_path = output_dir / original_name
+    if restored_path.exists():
+        raise VaultError(
+            f"'{restored_path}' already exists - refusing to overwrite it."
+        )
+
+    buffer = io.BytesIO(archive_bytes)
+    with tarfile.open(fileobj=buffer, mode="r") as tar:
+        tar.extractall(path=output_dir, filter="data")
+
+    if delete_vault_file:
+        vault_path.unlink()
+
+    return restored_path
