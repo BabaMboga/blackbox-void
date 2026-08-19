@@ -272,7 +272,7 @@ def _attempt_sidecar_path(vault_path: Path) -> Path:
 
     return vault_path.parent / f"{vault_path.name}{ATTEMPTS_SIDECAR_SUFFIX}"
 
-def _load_failed_attenpts(vault_path: Path) -> int:
+def _load_failed_attempts(vault_path: Path) -> int:
     """
     Read the current failed-attempt count for a vault. Missing or unreadable
     sidecar files are treated as zero attempts - this is a friction mechanism,
@@ -364,7 +364,7 @@ def unlock(
     # anything, and the wait is capped so it stays annoying rather
     # than genuinely punishing.
 
-    failed_attempts = _load_failed_attenpts(vault_path)
+    failed_attempts = _load_failed_attempts(vault_path)
     cooldown = _cooldown_seconds(failed_attempts)
     if cooldown > 0:
         time.sleep(cooldown)
@@ -384,10 +384,14 @@ def unlock(
         archive_bytes = aesgcm.decrypt(nonce, ciphertext, associated_data=None)
 
     except InvalidTag as exc:
+        _save_failed_attempts(vault_path, failed_attempts + 1)
         raise VaultError(
             "Could not unlock - wrong password or this .vault file is corrupted/tampered "
             "with. Nice try, though."
         ) from exc
+
+    # Correct password - clear any accumulated cooldown
+    _reset_failed_attempts(vault_path)
 
     if output_dir is None:
         output_dir = vault_path.parent
