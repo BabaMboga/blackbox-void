@@ -39,6 +39,7 @@ import json
 import os
 import struct
 import tarfile
+import time
 from pathlib import Path
 
 from cryptography.exceptions import InvalidTag
@@ -54,9 +55,19 @@ from blackbox.crypto import (
 
 # --- Format Constants ----
 VAULT_EXTENSION = ".vault"
-NONCE_SIZE = 12
+NONCE_SIZE = 12 # bytes - the standard/recommended size for GCM
 FORMAT_VERSION = 1
 DEFAULT_SECURE_DELETE_PASSES = 3
+
+# --- Failed-attempt cooldown constants ---
+# Cosmetic friction only - this NEVER locks anyone out permanently, deletes
+# anything, orblocks a correct password. it just makes rapid-fire guessing
+# progressively more annoying, the same way a bouncer walks slower to the 
+# door on the third time you've forgotten the password to the speakeasy.
+
+ATTEMPTS_SIDECAR_SUFFIX = ".attempts.json"
+BASE_COOLDOWN_SECONDS = 1.0
+MAX_COOLDOWN_SECONDS = 30.0
 
 class VaultError(Exception):
     """
@@ -249,6 +260,59 @@ def _read_sealed_vault(vault_path: Path) -> tuple[dict,bytes]:
         ciphertext = f.read()
     return header, ciphertext
 
+# ---Failed-attempt cooldown ---
+def _attempt_sidecar_path(vault_path: Path) -> Path:
+    """
+    Return the path to a vault's failed-attempt sidecar file.
+
+    Deliberately a *seperate* file from the .vault file itself - a corrupted
+    or missing sidecar should never be able to affect the actual encrypted
+    data and vice versa.
+    """
+
+    return vault_path.parent / f"{vault_path.name}{ATTEMPTS_SIDECAR_SUFFIX}"
+
+def _load_failed_attempts(vault_path: Path) -> int:
+    """
+    Read the current failed-attempt count for a vault. Missing or unreadable
+    sidecar files are treated as zero attempts - this is a friction mechanism,
+    nota security boundary, so failing open here (rather than raising) is the right call.
+    """
+    sidecar = _attempt_sidecar_path(vault_path)
+    if not sidecar.exists():
+        return 0
+    try:
+        data = json.loads(sidecar.read_text(encoding="utf-8"))
+        return int(data.get("failed_attempts", 0))
+    except (json.JSONDecodeError, ValueError, OSError):
+        return 0
+
+def _save_failed_attempts(vault_path: Path, count: int) -> None:
+    """Persist the failed-attempt count for a vault."""
+    sidecar = _attempt_sidecar_path(vault_path)
+    sidecar.write_text(json.dumps({"failed_attempts": count}), encoding="utf-8")
+
+def _reset_failed_attempts(vault_path: Path) -> None:
+    """Clear the failed-attempt count after a successful unlock."""
+    sidecar = _attempt_sidecar_path(vault_path)
+    if sidecar.exists():
+        sidecar.unlink()
+
+def _cooldown_seconds(failed_attempts: int) -> float:
+    """
+    Compute the cooldown delay for a given number of prior failures.
+
+    Doubles with each failure (1s, 2s, 4s, 8s, ...), capped at 
+    MAX_COOLDOWN_SECONDS so a forgetful legitimate user is never stuck
+    waiting an unreasonable amount of time - this is meant to be annoying,
+    not punishing.
+    """
+
+    if failed_attempts <= 0:
+        return 0.0
+    delay = BASE_COOLDOWN_SECONDS * (2 ** (failed_attempts - 1))
+    return min(delay, MAX_COOLDOWN_SECONDS)
+
 def unlock(
         vault_path: str | Path,
         password: str,
@@ -294,6 +358,17 @@ def unlock(
     nonce = base64.b64decode(header["nonce"])
     original_name = header["original_name"]
 
+    # If there have been prior failed attempts on this vault, make the
+    # user wait before we even try this one. Cosmetic friction only —
+    # this never blocks a correct password forever, never deletes
+    # anything, and the wait is capped so it stays annoying rather
+    # than genuinely punishing.
+
+    failed_attempts = _load_failed_attempts(vault_path)
+    cooldown = _cooldown_seconds(failed_attempts)
+    if cooldown > 0:
+        time.sleep(cooldown)
+
     key = rederive_key(password, salt)
 
     # AESGCM's auth tag self-verifies on decrypt: any wrong password OR
@@ -309,10 +384,14 @@ def unlock(
         archive_bytes = aesgcm.decrypt(nonce, ciphertext, associated_data=None)
 
     except InvalidTag as exc:
+        _save_failed_attempts(vault_path, failed_attempts + 1)
         raise VaultError(
             "Could not unlock - wrong password or this .vault file is corrupted/tampered "
             "with. Nice try, though."
         ) from exc
+
+    # Correct password - clear any accumulated cooldown
+    _reset_failed_attempts(vault_path)
 
     if output_dir is None:
         output_dir = vault_path.parent
