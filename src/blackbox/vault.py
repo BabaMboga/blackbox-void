@@ -79,3 +79,54 @@ def _archive_folder(folder_path: Path) -> bytes:
         tar.add(folder_path,arcname=folder_path.name)
     return buffer.getvalue()
 
+# --- Secure deletion ----
+
+def _secure_delete_file(path: Path, passes: int = DEFAULT_SECURE_DELETE_PASSES) -> None:
+    """
+    Best-effort secure deletion of a single file: overwrite its contents with
+    random bytes several times before unlinking it.
+
+    IMPORTANT CAVEATS (read before assuming this is bulletproof):
+
+    - On SSDs, wear-leveling means the physical cells you overwrite are often
+    NOT the same cells the drive originally wrote your data to. The drive's 
+    controller silently remaps writes, so "overwriting" a file logically does
+    not guarantee the original data is physically destroyed.
+    - Filesystem journaling (common on modern Linux/macOS/Windows filesystems) 
+    can retain copies of file data or metadata in the journal, outside the file's
+    own overwritten bytes.
+    - OS-level caching may delay or coalesce writes, meaning your overwrite passes
+    might not all reach physical storage in order.
+
+    In short: this raises the bar against casual undelete/recovery tools, but is NOT 
+    a guarantee against a determined attacker with forensic tools and physical access
+    to the drive. Document this limitation for users rather than promising something
+    we can't deliver.
+    """
+
+    if not path.is_file():
+        return
+
+    file_size = path.stat().st_size
+    with open(path, "r+b") as f:
+        for _ in range(passes):
+            f.seek(0)
+            f.write(os.urandom(file_size))
+            f.flush()
+            os.fsync(f.fileno())
+
+    path.unlink()
+
+def _secure_delete_folder(folder_path: Path, passes: int = DEFAULT_SECURE_DELETE_PASSES) -> None:
+    """
+    Recursively secure-delete every file in a folder, then remove the now-empty directory
+    tree. See _secure_delete_file for caveats.
+    """
+
+    for root, dirs, files in os.walk(folder_path, topdown=False):
+        root_path = Path(root)
+        for filename in files:
+            _secure_delete_file(root_path / filename, passes=passes)
+        for dirname in dirs:
+            (root_path / dirname).rmdir()
+    folder_path.rmdir()
