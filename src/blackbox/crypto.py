@@ -94,3 +94,29 @@ def derive_key(password: str, salt: bytes) -> bytes:
         hash_len=KEY_SIZE,
         type=Type.ID,  # Argon2id - the hybrid variant, resistant to both GPU and side-channel attacks
     )
+
+def new_key_material(password: str) -> KeyMaterial:
+    """
+    Generate a new salt and derive a key from the given password in one call.
+
+    This is the function to call when creating a new vault. It generates
+    a fresh salt, derives the key, and returns both in a KeyMaterial object.
+
+    Use this when creating a brand-new vault. For unlocking an existing vault, use derive_key() with the stored salt instead.
+    """
+
+    salt = generate_salt()
+    key = derive_key(password, salt)
+    return KeyMaterial(key=key, salt=salt)
+
+def rederive_key(password: str, stored_salt: bytes) -> bytes:
+    """
+    Re-derive the same key from a password and a previously stored salt.
+
+    Use this when unlocking an existing vault - the salt comes from the 
+    vault's metadata file, not freshly generated. The derived key will be
+    identical to the one originally created with new_key_material() if 
+    the password is correct.
+    """
+
+    return derive_key(password, stored_salt)
