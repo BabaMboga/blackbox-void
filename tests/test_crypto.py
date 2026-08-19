@@ -70,3 +70,19 @@ def test_rederive_key_with_wrong_password_produces_different_key():
     material = new_key_material("hunter2")
     wrong_password_key = rederive_key("wrongpassword", material.salt)
     assert wrong_password_key != material.key
+
+def test_rederive_key_with_wrong_salt_produces_different_key():
+    material = new_key_material("hunter2")
+    wrong_salt = generate_salt()
+    wrong_salt_key = rederive_key("hunter2", wrong_salt)
+    assert wrong_salt_key != material.key
+
+def test_rederive_key_with_empty_password_raises_value_error():
+    material = new_key_material("hunter2")
+    with pytest.raises(ValueError):
+        rederive_key("", material.salt)
+
+def test_rederive_key_with_wrong_salt_size_raises_value_error():
+    material = new_key_material("hunter2")
+    with pytest.raises(ValueError):
+        rederive_key("hunter2", b"short")
