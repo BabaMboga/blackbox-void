@@ -162,3 +162,75 @@ def _write_sealed_vault(
         f.write(struct.pack(">I", len(header_bytes)))
         f.write(header_bytes)
         f.write(ciphertext)
+
+
+# --- Public API ----
+
+def lock(
+        folder_path: str | Path,
+        password: str,
+        output_path: str | Path | None = None,
+        secure_delete: bool = True,
+        passes: int = DEFAULT_SECURE_DELETE_PASSES,
+) -> Path:
+    """
+    Encrypt a folder into a sealed .vault file and remove the original.
+
+    Args:
+        folder_path: the folder to lock.
+        password: the password toprotect it with (never stored).
+        output_path: where to write the .vault file. Defaults to placing 
+            it alongside the original folder, named "<folder_name>.vault"
+        secure_delete: if True (default), best-effort overwrite and remove
+            the original folder after a successful encryption. If False,
+            the original folder is left untouched - useful for testing, o
+            for users who want to verify the vault before trusting it with
+            the only copy of their data.
+        passes: number of overwrite passes during secure deletion.
+
+    Returns:
+        The path to the newly created .vault file.
+
+    Raises:
+        VaultError: if folder_path doesn't exist or ins't a directory
+    
+
+    """
+
+    folder_path = Path(folder_path).resolve()
+
+    if not folder_path.exists():
+        raise VaultError(f"'{folder_path}' does not exist.")
+    if not folder_path.is_dir():
+        raise VaultError(f"'{folder_path}' is not a folder.")
+
+    if output_path is None:
+        output_path = folder_path.parent / f"{folder_path.name}{VAULT_EXTENSION}"
+    else:
+        output_path = Path(output_path)
+
+    # 1. Pack the folder into an in-memory tar archive.
+    archive_bytes = _archive_folder(folder_path)
+
+    # 2. Derive a fresh key + salt from the password
+    key_material = new_key_material(password)
+
+    # 3. Encrypt the archive with AES-256-GCM.
+    nonce = os.urandom(NONCE_SIZE)
+    aesgcm = AESGCM(key_material.key)
+    ciphertext = aesgcm.encrypt(nonce, archive_bytes, associated_data=None)
+
+    # 4. Write the sealed .vault file (header + ciphertext).
+    _write_sealed_vault(
+        output_path=output_path,
+        salt=key_material.salt,
+        nonce=nonce,
+        ciphertext=ciphertext,
+        original_name=folder_path.name,
+    )
+
+    # 5 Remove the original - only after the vault write succeeded
+    if secure_delete:
+        _secure_delete_folder(folder_path, passes=passes)
+
+    return output_path
