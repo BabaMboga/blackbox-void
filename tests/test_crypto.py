@@ -65,3 +65,8 @@ def test_new_key_material_returns_key_and_salt():
     # Simulate unlocking later: same password  stored salt -> same key
     rederived_key = rederive_key("hunter2", material.salt)
     assert rederived_key == material.key
+
+def test_rederive_key_with_wrong_password_produces_different_key():
+    material = new_key_material("hunter2")
+    wrong_password_key = rederive_key("wrongpassword", material.salt)
+    assert wrong_password_key != material.key
