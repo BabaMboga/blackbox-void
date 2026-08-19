@@ -49,3 +49,16 @@ from blackbox.crypto import (
     TIME_COST,
     new_key_material
 )
+
+# --- Format Constants ----
+VAULT_EXTENSION = ".vault"
+NONCE_SIZE = 12
+FORMAT_VERSION = 1
+DEFAULT_SECURE_DELETE_PASSES = 3
+
+class VaultError(Exception):
+    """
+    Raised for any vault-specific failure (bad folder, write failure,
+    etc.) so callers can catch blackbox errors distinctly from generic 
+    OS/crypto exceptions.
+    """
