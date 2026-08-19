@@ -62,3 +62,20 @@ class VaultError(Exception):
     etc.) so callers can catch blackbox errors distinctly from generic 
     OS/crypto exceptions.
     """
+
+# --- Archiving -----
+
+def _archive_folder(folder_path: Path) -> bytes:
+    """
+    Pack a folder into an in-memory tar archive and return its raw bytes.
+
+    Using an in-memory BytesIO buffer (rather than writing a temp .tar
+    file to disk first) means the unencrypted archive never touches
+    the filesystem at all — it exists only in RAM for the brief moment
+    between packing and encrypting.
+    """
+    buffer = io.BytesIO()
+    with tarfile.open(fileobj=buffer, mode="w") as tar:
+        tar.add(folder_path,arcname=folder_path.name)
+    return buffer.getvalue()
+
