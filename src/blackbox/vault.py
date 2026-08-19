@@ -41,6 +41,7 @@ import struct
 import tarfile
 from pathlib import Path
 
+from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from blackbox.crypto import (
@@ -277,10 +278,9 @@ def unlock(
         The path to the restored folder.
  
     Raises:
-        VaultError: if vault_path doesn't exist, or the restored folder
-            would overwrite an existing one.
-        cryptography.exceptions.InvalidTag: if the password is wrong or
-            the vault file has been tampered with / corrupted.
+        VaultError: if vault_path doesn't exist, if the restored folder
+            would overwrite an existing one, or if the password is wrong / 
+            the vault file is corrupted or tampered with. 
     """
 
     vault_path = Path(vault_path).resolve()
@@ -296,12 +296,23 @@ def unlock(
 
     key = rederive_key(password, salt)
 
-    #  InvalidTag propagates naturally here on wrong password / tampering - 
-    #  deliberatelynot caught, so callers get a clear, specific signal
-    #  rather than a silently "succcessful" bad decryption.
+    # AESGCM's auth tag self-verifies on decrypt: any wrong password OR
+    # any tampering/corruption of the ciphertext raises InvalidTag. We
+    # can't distinguish "wrong password" from "corrupted file" from the
+    # exception alone — both look identical from the outside, which is
+    # itself a deliberate security property (it doesn't leak *why* the
+    # attempt failed). We catch it here and surface one clear, honest
+    # message instead of a raw crypto traceback.
 
     aesgcm = AESGCM(key)
-    archive_bytes = aesgcm.decrypt(nonce, ciphertext, associated_data=None)
+    try:
+        archive_bytes = aesgcm.decrypt(nonce, ciphertext, associated_data=None)
+
+    except InvalidTag as exc:
+        raise VaultError(
+            "Could not unlock - wrong password or this .vault file is corrupted/tampered "
+            "with. Nice try, though."
+        ) from exc
 
     if output_dir is None:
         output_dir = vault_path.parent
