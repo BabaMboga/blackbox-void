@@ -161,3 +161,54 @@ def test_cooldown_seconds_is_capped(monkeypatch):
     monkeypatch.setattr(vault, "MAX_COOLDOWN_SECONDS", 5.0)
 
     assert _cooldown_seconds(10) == 5.0 # would be huge uncapped, but pinned at max
+
+# --- failed-attempt cooldown: integration through unlock() ----
+
+def test_failed_attempts_increment_on_worng_password(secret_folder):
+    vault_path = lock(str(secret_folder), password="hunter2")
+
+    assert _load_failed_attempts(vault_path) == 0
+
+    with pytest.raises(VaultError):
+        unlock(str(vault_path), password="wrongpassword")
+    assert _load_failed_attempts(vault_path) == 1
+
+    with pytest.raises(VaultError):
+        unlock(str(vault_path), password="wrongpassword")
+    assert _load_failed_attempts(vault_path) == 2
+
+def test_failed_attempts_reset_after_successful_unlock(secret_folder):
+    vault_path = lock(str(secret_folder), password="hunter2")
+
+    with pyset.raises(VaultError):
+        unlock(str(vault_path), password="Wrongpassword")
+    assert _load_failed_attempts(vault_path) == 1
+
+    unlock(str(vault_path),password="hunter2")
+
+    # vault_path itself is gone now (unlocked successfully), but the
+    # sidecar convention is what we're really checking: it should not
+    # have been left behind at 1 for a vault that no longer exists.
+    sidecar = vault_path.parent / f"{vault_path.name}.attempts.json"
+    assert not sidecar.exists()
+
+def test_correct_password_still_pays_cooldown_from_prior_failures(secret_folder, monkeypatch):
+    """
+    A correct passwordon attempt N still pays whatever cooldown was earned by the preview
+    N-1 failures - the check happens before we know the attempt will succeed. This is 
+    intentional: an attacker shouldn't be able to skip the delay by eventually guessing
+    right.
+    """
+
+    monkeypatch.setattr(vault, "BASE_COOLDOWN_SECONDS", 0.05)
+    monkeypatch.setattr(vault, "MAX_COOLDOWN_SECONDS", 1.0)
+
+    vault_path = lock(str(secret_folder), password="hunter2")
+
+    with pytest.raises(VaultError):
+        unlock(str(vault_path), password="wrongpassword")
+
+    start = time.monotonic()
+    unlock(str(vault_path),password="wrongpassword")
+    elapsed = time.monotonic() - start
+    assert elapsed >= 0.05 # paid at least the 1-failure cooldown
