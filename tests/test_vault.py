@@ -74,3 +74,37 @@ def test_lock_writes_to_custom_output_path(secret_folder, tmp_path):
     result = lock(str(secret_folder), password="hunter2", output_path=str(custom_output))
     assert result == custom_output
     assert custom_output.exists()
+
+# --- unlock(): round trip ----
+
+def test_unlock_restroes_original_content(secret_folder):
+    original_diary = (secret_folder / "diary.txt").read_text()
+    original_notes = (secret_folder / "notes.txt").read_text()
+
+    vault_path = lock(str(secret_folder), password="hunter2")
+    restored = unlock(str(vault_path), password="hunter2")
+
+    assert restored.exists()
+    assert (restored / "diary.txt").read_text() == original_diary
+    assert (restored / "notes.txt").read_text() == original_notes
+
+def test_unlock_remove_vault_file_by_default(secret_folder):
+    vault_path = lock(str(secret_folder), password="hunter2")
+    unlock(str(vault_path), password="hunter2")
+    assert not vault_path.exists()
+
+def test_unlock_keeps_vault_file_when_delete_vault_file_false(secret_folder):
+    value_path = lock(str(secret_folder), password="hunter2")
+    unlock(str(value_path), password="hunter2", delete_vault_file=False)
+    assert value_path.exists()
+
+def test_unlock_raises_if_vault_missing(tmp_path):
+    with pytest.raises(VaultError):
+        unlock(str(tmp_path / "nope.vault"), password="hunter2")
+
+def test_unlock_refuses_to_overwrite_existing_folder(secret_folder):
+    vault_path = lock(str(secret_folder), password="hunter2", secure_delete=False)
+    # secret_folder is still on disk (secure_delete=False), so unlocking
+    # into the same location should refuse rather than clobber it.
+    with pytest.raises(VaultError):
+        unlock(str(vault_path), password="hunter2")
