@@ -177,3 +177,37 @@ def _unhide_linux(path: Path) -> Path:
     if undotted_path != path:
         path.rename(undotted_path)
     return undotted_path
+
+def unhide_path(path: str | Path) -> Path:
+    """
+    Reverse of hide_path(): restore a previously hidden file or
+    folder to normal visibility, using the appropriate mechanism for
+    the current OS.
+ 
+    Args:
+        path: the currently-hidden file or folder to restore. On
+            macOS/Linux this should be the dotfile path (i.e. the
+            path hide_path() actually returned), not the original
+            pre-hide name.
+ 
+    Returns:
+        The path to the now-visible item — on macOS/Linux this may
+        differ from the input path, since unhiding there means
+        renaming away the dotfile prefix.
+ 
+    Raises:
+        HideError: if the current OS isn't recognized, or the
+            underlying OS call fails.
+    """
+
+    path = Path(path).resolve()
+    system = platform.system()
+
+    if system == "Windows":
+        return _unhide_windows(path)
+    elif system == "Darwin":
+        return _unhide_macos(path)
+    elif system == "Linux":
+        return _unhide_linux(path)
+    else:
+        raise HideError(f"Unsupported OS for unhiding: {system!r}")
