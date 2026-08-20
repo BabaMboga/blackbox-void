@@ -141,3 +141,23 @@ def test_unlock_corrupted_vault_raises_vault_error(secret_folder):
  
     with pytest.raises(VaultError):
         unlock(str(vault_path), password="hunter2")
+
+# --- failed-attempt cooldown: unit-level ---
+
+def test_cooldown_seconds_is_zereo_with_no_failures():
+    assert _cooldown_seconds(0) == 0.0
+
+def test_cooldown_seconds_doubles_with_each_failure(monkeypatch):
+    monkeypatch.setattr(vault, "BASE_COOLDOWN_SECONDS", 1.0)
+    monkeypatch.setattr(vault, "MAX_COOLDOWN_SECONDS", 1000.0)
+
+    assert _cooldown_seconds(1) == 1.0
+    assert _cooldown_seconds(2) == 2.0
+    assert _cooldown_seconds(3) == 4.0
+    assert _cooldown_seconds(4) == 8.0
+
+def test_cooldown_seconds_is_capped(monkeypatch):
+    monkeypatch.setattr(vault, "BASE_COOLDOWN_SECONDS", 1.0)
+    monkeypatch.setattr(vault, "MAX_COOLDOWN_SECONDS", 5.0)
+
+    assert _cooldown_seconds(10) == 5.0 # would be huge uncapped, but pinned at max
