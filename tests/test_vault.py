@@ -112,7 +112,7 @@ def test_lock_writes_to_custom_output_path(secret_folder, tmp_path):
 
 # --- unlock(): round trip ----
 
-def test_unlock_restroes_original_content(secret_folder):
+def test_unlock_restores_original_content(secret_folder):
     """
     The core promise of the whole module: what goes in via lock() must
     come backout via unlock() byte-for-byte identical. This is the single 
@@ -216,7 +216,7 @@ def test_unlock_corrupted_vault_raises_vault_error(secret_folder):
 
 # --- failed-attempt cooldown: unit-level ---
 
-def test_cooldown_seconds_is_zereo_with_no_failures():
+def test_cooldown_seconds_is_zero_with_no_failures():
     """
     With zero prior failure, there should be no cooldown at all - a first
     attempt (or a fresh vault) should never be artificially slowed down
@@ -253,7 +253,7 @@ def test_cooldown_seconds_is_capped(monkeypatch):
 
 # --- failed-attempt cooldown: integration through unlock() ----
 
-def test_failed_attempts_increment_on_worng_password(secret_folder):
+def test_failed_attempts_increment_on_wrong_password(secret_folder):
     """
     Each wrong-password attempt should increment the persisted failed-attempt
     counter by exactly one - this is the actual state that _cooldown_seconds()
