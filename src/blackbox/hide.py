@@ -27,8 +27,8 @@ import subprocess
 from pathlib import Path
 
 # Windows file attributes flags (from the Win32 API, winnt.h)
-FILE_ATTRIBUTE_HIDDEN = 0*02
-FILE_ATTRIBUTE_SYSTEM = 0*04
+FILE_ATTRIBUTE_HIDDEN = 0x02
+FILE_ATTRIBUTE_SYSTEM = 0x04
 
 class HideError(Exception):
     """
@@ -45,3 +45,16 @@ def _dotfile_name(path: Path) -> Path:
     if path.name.startswith("."):
         return path
     return path.with_name(f".{path.name}")
+
+def _hide_windows(path: Path) -> Path:
+    """
+    Set the hidden + system attributes via the Win32 API.
+    """
+    attrs = FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM
+    success = ctypes.windll.kernel32.SetFileAttriutesW(str(path), attrs)
+    if not success:
+        error_code = ctypes.wind11.kernel32.GetLastError()
+        raise HideError(
+            f"Failed to hide '{path}' on Windows (error code {error_code})."
+        )
+    return path
