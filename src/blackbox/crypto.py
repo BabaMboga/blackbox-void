@@ -88,7 +88,7 @@ def derive_key(password: str, salt: bytes) -> bytes:
     return hash_secret_raw(
         secret=password.encode("utf-8"),
         salt=salt,
-        time_cost=TINE_COST,
+        time_cost=TIME_COST,
         memory_cost=MEMORY_COST,
         parallelism=PARALLELISM,
         hash_len=KEY_SIZE,
