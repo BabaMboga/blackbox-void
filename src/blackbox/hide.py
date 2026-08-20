@@ -58,3 +58,25 @@ def _hide_windows(path: Path) -> Path:
             f"Failed to hide '{path}' on Windows (error code {error_code})."
         )
     return path
+
+def _hide_macos(path: Path) -> Path:
+    """
+    Rename to a dotfile AND set the BSD 'hidden' flag via chflags, for coverage across Finder,
+    Terminal and other tools.
+    """
+    dotted_path = _dotfile_name(path)
+    if dotted_path != path:
+        path.rename(dotted_path)
+
+    result = subprocess.run(
+        ["chflags", "hidden", str(dotted_path)],
+        capture_output=True,
+        text=True,
+    )
+
+    if result.returncode != 0:
+        raise HideError(
+            f"Failed to set hidden flag on '{dotted_path}' via chflags: "
+            f"{result.stderr.strip()}"
+        )
+    return dotted_path
