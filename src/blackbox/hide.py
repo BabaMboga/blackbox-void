@@ -89,3 +89,33 @@ def _hide_linux(path: Path) -> Path:
     if dotted_path != path:
         path.rename(dotted_path)
     return dotted_path
+
+def hide_path(path: str | Path) -> Path:
+    """
+    Hide a file or folder from casual view, using the appropriate mechanism for the current OS.
+ 
+    This is cosmetic/deterrent only — it is not a security boundary. Encryption (blackbox.vault) 
+    is what actually protects the data; this just keeps it out of a casual glance at a file browser.
+ 
+    Args:
+        path: the file or folder to hide.
+ 
+    Returns:
+        The path to the now-hidden item — on macOS/Linux this may differ from the input path, 
+        since hiding there means renaming to a dotfile. Callers should use the returned path 
+        for any further operations, not the original.
+ 
+    Raises:
+        HideError: if the current OS isn't recognized, or the underlying OS call fails.
+    """
+    path = Path(path).resolve()
+    system = platform.system()
+
+    if system == "windows":
+        return _hide_windows(path)
+    elif system == "Darwin":
+        return _hide_macos(path)
+    elif system == "Linux":
+        return _hide_linux(path)
+    else:
+        raise HideError(f"Unsupported OS for hiding: {system!r}")
