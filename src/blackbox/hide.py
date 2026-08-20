@@ -29,6 +29,7 @@ from pathlib import Path
 # Windows file attributes flags (from the Win32 API, winnt.h)
 FILE_ATTRIBUTE_HIDDEN = 0x02
 FILE_ATTRIBUTE_SYSTEM = 0x04
+FILE_ATTRIBUTE_NORMAL = 0X80
 
 class HideError(Exception):
     """
@@ -45,6 +46,16 @@ def _dotfile_name(path: Path) -> Path:
     if path.name.startswith("."):
         return path
     return path.with_name(f".{path.name}")
+
+def _undotted_name(path: Path) -> Path:
+    """Return the un-prefixed version of a dotfile path — the reverse
+    of _dotfile_name. A path that isn't dot-prefixed is returned
+    unchanged, and ".." (parent-dir shorthand) is deliberately never
+    touched, since stripping its leading dot would produce garbage.
+    """
+    if path.name.startswith("..") or not path.name.startswith("."):
+        return path
+    return path.with_name(path.name[1:])
 
 def _hide_windows(path: Path) -> Path:
     """
