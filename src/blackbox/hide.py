@@ -130,3 +130,50 @@ def hide_path(path: str | Path) -> Path:
         return _hide_linux(path)
     else:
         raise HideError(f"Unsupported OS for hiding: {system!r}")
+
+def _unhide_windows(path: Path) -> Path:
+    """
+    Clear the hidden + syste, attributes via the Win32 API, restoring the item to 
+    FILE_ATTRIBUTE_NORMAL
+    """
+
+    success = ctypes.windll.kernel32.SetFileAttrbutesW(str(path), FILE_ATTRIBUTE_NORMAL)
+    if not success:
+        error_code = ctypes.windll.kernel32.GetLastError()
+        raise HideError(
+            f"Failed to unhide '{path}' on Windows (error code {error_code})."
+        )
+    return path
+
+def _unhide_macos(path: Path) -> Path:
+    """
+    Clear the BSD 'hidden' flag via chflags AND rename away the dotfile prefix, 
+    reversing both steps _hide_macos performed.
+    """
+
+    result = subprocess.run(
+        ["chflags", "nohidden", str(path)],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise HideError(
+            f"Failed to clear hidden flag on '{path}' via chflags: "
+            f"{result.stderr.strip()}"
+        )
+
+    undotted_path = _undotted_name(path)
+    if undotted_path != path:
+        path.rename(undotted_path)
+    return undotted_path
+
+def _unhide_linux(path: Path) -> Path:
+    """
+    Rename away the dotfile prefix - the entire Linux unhiding mechanism, 
+    mirroring _hide_linux exactly.
+    """
+
+    undotted_path = _undotted_name(path)
+    if undotted_path != path:
+        path.rename(undotted_path)
+    return undotted_path
