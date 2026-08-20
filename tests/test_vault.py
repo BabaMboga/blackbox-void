@@ -180,7 +180,7 @@ def test_failed_attempts_increment_on_worng_password(secret_folder):
 def test_failed_attempts_reset_after_successful_unlock(secret_folder):
     vault_path = lock(str(secret_folder), password="hunter2")
 
-    with pyset.raises(VaultError):
+    with pytest.raises(VaultError):
         unlock(str(vault_path), password="Wrongpassword")
     assert _load_failed_attempts(vault_path) == 1
 
@@ -209,6 +209,6 @@ def test_correct_password_still_pays_cooldown_from_prior_failures(secret_folder,
         unlock(str(vault_path), password="wrongpassword")
 
     start = time.monotonic()
-    unlock(str(vault_path),password="wrongpassword")
+    unlock(str(vault_path),password="hunter2")
     elapsed = time.monotonic() - start
     assert elapsed >= 0.05 # paid at least the 1-failure cooldown
