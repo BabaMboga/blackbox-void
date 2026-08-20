@@ -44,4 +44,33 @@ def fast_cooldown(monkeypatch):
     monkeypatch.setattr(vault, "BASE_COOLDOWN_SECONDS", 0.01)
     monkeypatch.setattr(vault, "MAX_COOLDOWN_SECONDS", 0.05)
 
-    
+
+# --- lock() ----
+def test_lock_creates_vault_file(secret_folder):
+    vault_path = lock(str(secret_folder), password="hunter2")
+    assert vault_path.exists()
+    assert vault_path.suffix == ".vault"
+
+def test_lock_remove_origina_by_default(secret_folder):
+    lock(str(secret_folder),password="hunter2")
+    assert not secret_folder.exists()
+
+def test_lock_keeps_original_when_secure_delete_false(secret_folder):
+    lock(str(secret_folder), password="hunter2", secure_delete=False)
+    assert secret_folder.exists()
+
+def test_lock_raises_if_folder_missing(tmp_path):
+    with pytest.raises(VaultError):
+        lock(str(tmp_path / "does_not_exist"), password="hunter2")
+
+def test_lock_raises_if_path_is_a_file_not_a_folder(tmp_path):
+    a_file = tmp_path / "not_a_folder.txt"
+    a_file.write_text("oops")
+    with pytest.raises(VaultError):
+        lock(str(a_file), password="hunter2")
+
+def test_lock_writes_to_custom_output_path(secret_folder, tmp_path):
+    custom_output = tmp_path / "custom_name.vault"
+    result = lock(str(secret_folder), password="hunter2", output_path=str(custom_output))
+    assert result == custom_output
+    assert custom_output.exists()
