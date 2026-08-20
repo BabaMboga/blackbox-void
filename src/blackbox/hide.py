@@ -80,3 +80,12 @@ def _hide_macos(path: Path) -> Path:
             f"{result.stderr.strip()}"
         )
     return dotted_path
+
+def _hide_linux(path: Path) -> Path:
+    """
+    Rename to a dotfile - the entire Linux hiding convention.
+    """
+    dotted_path = _dotfile_name(path)
+    if dotted_path != path:
+        path.rename(dotted_path)
+    return dotted_path
