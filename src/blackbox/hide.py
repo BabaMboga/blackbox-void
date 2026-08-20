@@ -51,9 +51,9 @@ def _hide_windows(path: Path) -> Path:
     Set the hidden + system attributes via the Win32 API.
     """
     attrs = FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM
-    success = ctypes.windll.kernel32.SetFileAttriutesW(str(path), attrs)
+    success = ctypes.windll.kernel32.SetFileAttributesW(str(path), attrs)
     if not success:
-        error_code = ctypes.wind11.kernel32.GetLastError()
+        error_code = ctypes.windll.kernel32.GetLastError()
         raise HideError(
             f"Failed to hide '{path}' on Windows (error code {error_code})."
         )
@@ -111,7 +111,7 @@ def hide_path(path: str | Path) -> Path:
     path = Path(path).resolve()
     system = platform.system()
 
-    if system == "windows":
+    if system == "Windows":
         return _hide_windows(path)
     elif system == "Darwin":
         return _hide_macos(path)
