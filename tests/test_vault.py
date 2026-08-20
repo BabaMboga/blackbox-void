@@ -108,3 +108,36 @@ def test_unlock_refuses_to_overwrite_existing_folder(secret_folder):
     # into the same location should refuse rather than clobber it.
     with pytest.raises(VaultError):
         unlock(str(vault_path), password="hunter2")
+
+# ---- unlock(): integrity handling ----
+
+def test_unlock_wrong_password_raises_vault_error(secret_folder):
+    vault_path = lock(str(secret_folder), password="hunter2")
+    with pytest.raises(VaultError):
+        unlock(str(vault_path), password="wrongpassword")
+
+def test_unlock_wrong_password_does_not_raise_raw_invalidtag(secret_folder):
+    """
+    Callers should only ever see VaultError from this module,never a raw
+    cryptography.exceptions.InvalidTag leaking through.
+    """
+
+    vault_path = lock(str(secret_folder), password="hunter2")
+    try:
+        unlock(str(vault_path), password="wrongpassword")
+
+    except VaultError as e:
+        assert "wrong password" in str(e).lower() or "corrupted" in str(e).lower()
+    else:
+        pytest.fail("Expected VaultError, but unlock() succeeded wuth a wrong password.")
+
+def test_unlock_corrupted_vault_raises_vault_error(secret_folder):
+    vault_path = lock(str(secret_folder), password="hunter2")
+ 
+    # Flip some bytes near the end of the file (inside the ciphertext).
+    with open(vault_path, "r+b") as f:
+        f.seek(-5, 2)
+        f.write(b"\x00\x00\x00\x00\x00")
+ 
+    with pytest.raises(VaultError):
+        unlock(str(vault_path), password="hunter2")
