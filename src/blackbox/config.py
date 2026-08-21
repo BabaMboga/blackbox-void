@@ -107,3 +107,25 @@ def _disguise_config_path(base_path: str | Path = ".") -> Path:
     somewhere in a system-wude config directory.
     """
     return Path(base_path).resolve() / DISGUISE_CONFIG_FILENAME
+
+def _load_disguise_config(base_path: str | Path = ".") -> list[str]:
+    """
+    Load the list of candidate disguise names from the JSON config file, falling back to DEFAULT_DISGUISE_NAMES
+    if the file is missing, empty or malformed.
+
+    Failing open here (returning defaults rather than raising) is the right call - this is a cosmetic deterrent
+    feature, not a security boundary, so a corrupted config file should never block a user from locking their 
+    vault.
+    """
+    config_path = _disguise_config_path(base_path)
+    if not config_path.exists():
+        return DEFAULT_DISGUISE_NAMES
+
+    try: 
+        data = json.loads(config_path.read_text(encoding="utf-8"))
+        names = data.get("disguise_names")
+        if isinstance(names, list) and all(isinstance(n, str) for n in names) and names:
+            return names
+        return DEFAULT_DISGUISE_NAMES
+    except (json.JSONDecodeError, OSError, ValueError):
+        return DEFAULT_DISGUISE_NAMES
