@@ -77,3 +77,33 @@ def init_void(base_path: str | Path = ".", name: str = DEFAULT_VAULT_NAME) -> Pa
 
     return void_path
 
+# --- Disguise naming ----------
+
+# Renaming the sealed .vault file to something boring and system-looking is pure deterrent, exactly
+# like blackbox.hide - it doesn't add any actual security, it just means a casual glance at a directory
+# listing sees "ntuser.dat.tmp" instead of "The Void.vault" and moves on.
+
+DISGUISE_CONFIG_FILENAME = ".blackbox_disguise.json"
+
+# Shipped as a sensible, boring-looking default. Users can override or extend this list by editing the
+# JSON config file - see _load_disguise_config() below.
+
+DEFAULT_DISGUISE_NAMES = [
+    "ntuser.dat.tmp",
+    "swapfile.sys",
+    "systemd-private-cache.db",
+    ".Trash-1000-cache",
+    "com.apple.diagnostics.plist",
+    "-$cachefile.tmp",
+    ".DS_Store.bak",
+]
+
+def _disguise_config_path(base_path: str | Path = ".") -> Path:
+    """
+    Return the path to the disguise-name JSON config file.
+
+    Lives alongside The Void itself (same base_path as init_void), so a user can drop their own list of
+    preferred boring names right next to their vault without needing to hunt for a config file buried
+    somewhere in a system-wude config directory.
+    """
+    return Path(base_path).resolve() / DISGUISE_CONFIG_FILENAME
