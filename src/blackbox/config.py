@@ -143,6 +143,45 @@ def get_disguise_name(base_path: str | Path = ".") -> str:
     candidates = _load_disguise_config(base_path)
     return random.choice(candidates)
 
+# ---- Disguise Registry -----
+# Disguising a vault is only useful if blackbox can find it again later - a random rename with no memory of 
+# what happened would strand the vault under an unpredictable name forever. This registry is what makes
+# disguise_vault() reversible, mirroring how blackbox.hide keeps hide_path() as a matched pair.
+
+DISGUISE_REGISTRY_FILENAME = ".blackbox_disguise_registry.json"
+
+def _disguise_registry_path(base_path: str | Path = ".") -> Path:
+    """
+    Return the path to the disguise registry file.
+    """
+    return Path(base_path).resolve() / DISGUISE_REGISTRY_FILENAME
+
+def _load_disguise_registry(base_path: str | Path = ".") -> dict[str, str]:
+    """
+    Load the original_name -> disguised_name mapping. Missing or corrupted registries are treated as empty
+    - this is a convenience lookup, not the source of truth for the vault's actual consent, so failing open
+    here is correct
+    """
+    registry_path = _disguise_registry_path(base_path)
+    if not registry_path.exists():
+        return {}
+    try:
+        data = json.loads(registry_path.read_text(encoding="utf-8"))
+        if isinstance(data, dict):
+            return {str(k): str(v) for k, v in data.items()}
+        return {}
+    except (json.JSONDecodeError, OSError, ValueError):
+        return {}
+
+def _save_disguise_registry(base_path: str | Path, registry: dict[str, str]) -> None:
+    """
+    Persist the original_name -> disguised_name mapping.
+    """
+
+    registry_path = _disguise_registry_path(base_path)
+    registry_path.write_text(json.dumps(registry), encoding="utf-8")
+
+
 def disguise_vault(vault_path: str | Path, base_path: str | Path = ".") -> Path:
     """
     Rename a sealed .vault file to a boring, system-looking name.
