@@ -206,8 +206,22 @@ def disguise_vault(vault_path: str | Path, base_path: str | Path = ".") -> Path:
     if not vault_path.exists():
         raise FileNotFoundError(f"'{vault_path}' does not exist.")
 
-    disguised_name = get_disguise_name(base_path)
+    original_name = vault_path.name
+    candidates = _load_disguise_config(base_path)
+    existing_disguised_names = set(_load_disguise_registry(base_path).values())
+
+    # Prefer a name not already in use by another disguised vault it this same directory, to avoid two vaults
+    # colliding under one filename. Falls back to any candidate if every one is somehow already taken 
+    # (exceedingly unlikely with the default list size.)
+
+    available = [c for c in candidates if c not in existing_disguised_names]
+    disguised_name = random.choice(available) if available else random.choice(candidates)
     disguised_path = vault_path.parent / disguised_name
 
     os.rename(vault_path, disguised_path)
+
+    registry = _load_disguise_registry(base_path)
+    registry[original_name] = disguised_name
+    _save_disguise_registry(base_path, registry)
+    
     return disguised_path
