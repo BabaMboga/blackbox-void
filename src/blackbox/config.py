@@ -142,3 +142,33 @@ def get_disguise_name(base_path: str | Path = ".") -> str:
 
     candidates = _load_disguise_config(base_path)
     return random.choice(candidates)
+
+def disguise_vault(vault_path: str | Path, base_path: str | Path = ".") -> Path:
+    """
+    Rename a sealed .vault file to a boring, system-looking name.
+
+    This is cosmetic/deterrent only, exactly like blackbox.hide - it does not add encryption or access control. 
+    The actual protection is AES-256-GCM (blackbox.vault); this just means a vault file doesn't announce itself
+    as "The Void.vault" in a directory listing.
+
+    Args:
+        vault_path: the sealed .vault file to rename.
+        base_path: where to look for a disguise-name config file.
+            Defaults to the current directory.
+
+    Returns:
+        The new,disguised path.
+
+    Raises:
+        FileNotFoundError: if vault_path doesn't exist.
+    """
+
+    vault_path = Path(vault_path).resolve()
+    if not vault_path.exists():
+        raise FileNotFoundError(f"'{vault_path}' does not exist.")
+
+    disguised_name = get_disguise_name(base_path)
+    disguised_path = vault_path.parent / disguised_name
+
+    os.rename(vault_path, disguised_path)
+    return disguised_path
