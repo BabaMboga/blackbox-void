@@ -106,7 +106,7 @@ def test_hide_path_dispatches_to_linux_handler(tmp_path, monkeypatch):
     assert result == target
 
 
-def test_hide_path_raises_on_unrecognized_os(tmp_path, monkeypatch):
+def test_hide_path_raises_on_unrecognised_os(tmp_path, monkeypatch):
     """An OS that isn't Windows, Darwin, or Linux (e.g. a BSD variant
     or something exotic) should fail with a clear HideError rather
     than silently doing nothing or crashing with an unrelated error.
