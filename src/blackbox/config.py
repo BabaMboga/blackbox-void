@@ -223,5 +223,45 @@ def disguise_vault(vault_path: str | Path, base_path: str | Path = ".") -> Path:
     registry = _load_disguise_registry(base_path)
     registry[original_name] = disguised_name
     _save_disguise_registry(base_path, registry)
-    
+
     return disguised_path
+
+def undisguise_vault(original_name: str, base_path: str | Path = ".") -> Path:
+    """
+    Reverse of disguise_vault(): look up a vault's disguised name in the registry, rename it back to its original, 
+    and forget the mapping now that it's no longer needed.
+
+    Args:
+        original_name: the vault's original filename (e.g. "The Void.vault") - what it was called before disguising.
+        base_path: where the registry file and disguised vault live.
+
+    Returns:
+        The restored, original path.
+
+    Raises:
+        FileNotFoundError: if there's no registry entry for originial_name, or the disguised file it points to is 
+            missing (e.g. it was manually renamed or deleted outside of blackbox).
+    """
+
+    base_path = Path(base_path).resolve()
+    registry = _load_disguise_registry(base_path)
+
+    disguised_name = registry.get(original_name)
+    if disguised_name is None:
+        raise FileNotFoundError(
+            f"No disguise record found for '{original_name}'"
+        )
+
+    disguised_path = base_path / disguised_name
+    if not disguised_path.exists():
+        raise FileNotFoundError(
+            f"Registry points to '{disguised_path}', but it doesn't exist."
+        )
+
+    original_path = base_path / disguised_name
+    os.rename(disguised_path, original_path)
+
+    del registry[original_name]
+    _save_disguise_registry(base_path, registry)
+
+    return original_path
