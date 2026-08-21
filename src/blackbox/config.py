@@ -129,3 +129,16 @@ def _load_disguise_config(base_path: str | Path = ".") -> list[str]:
         return DEFAULT_DISGUISE_NAMES
     except (json.JSONDecodeError, OSError, ValueError):
         return DEFAULT_DISGUISE_NAMES
+
+
+def get_disguise_name(base_path: str | Path = ".") -> str:
+    """
+    Return a randomly chosen disguise filename from the configured(or default) candidate list.
+
+    A random pick, rather than always the first entry, means two vaults on the same machine
+    are less likely to share an identical disguised name - a small but free improvement to the
+    deterrent
+    """
+
+    candidates = _load_disguise_config(base_path)
+    return random.choice(candidates)
