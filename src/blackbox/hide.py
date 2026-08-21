@@ -29,6 +29,7 @@ from pathlib import Path
 # Windows file attributes flags (from the Win32 API, winnt.h)
 FILE_ATTRIBUTE_HIDDEN = 0x02
 FILE_ATTRIBUTE_SYSTEM = 0x04
+FILE_ATTRIBUTE_NORMAL = 0X80
 
 class HideError(Exception):
     """
@@ -45,6 +46,16 @@ def _dotfile_name(path: Path) -> Path:
     if path.name.startswith("."):
         return path
     return path.with_name(f".{path.name}")
+
+def _undotted_name(path: Path) -> Path:
+    """Return the un-prefixed version of a dotfile path — the reverse
+    of _dotfile_name. A path that isn't dot-prefixed is returned
+    unchanged, and ".." (parent-dir shorthand) is deliberately never
+    touched, since stripping its leading dot would produce garbage.
+    """
+    if path.name.startswith("..") or not path.name.startswith("."):
+        return path
+    return path.with_name(path.name[1:])
 
 def _hide_windows(path: Path) -> Path:
     """
@@ -119,3 +130,84 @@ def hide_path(path: str | Path) -> Path:
         return _hide_linux(path)
     else:
         raise HideError(f"Unsupported OS for hiding: {system!r}")
+
+def _unhide_windows(path: Path) -> Path:
+    """
+    Clear the hidden + syste, attributes via the Win32 API, restoring the item to 
+    FILE_ATTRIBUTE_NORMAL
+    """
+
+    success = ctypes.windll.kernel32.SetFileAttrbutesW(str(path), FILE_ATTRIBUTE_NORMAL)
+    if not success:
+        error_code = ctypes.windll.kernel32.GetLastError()
+        raise HideError(
+            f"Failed to unhide '{path}' on Windows (error code {error_code})."
+        )
+    return path
+
+def _unhide_macos(path: Path) -> Path:
+    """
+    Clear the BSD 'hidden' flag via chflags AND rename away the dotfile prefix, 
+    reversing both steps _hide_macos performed.
+    """
+
+    result = subprocess.run(
+        ["chflags", "nohidden", str(path)],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise HideError(
+            f"Failed to clear hidden flag on '{path}' via chflags: "
+            f"{result.stderr.strip()}"
+        )
+
+    undotted_path = _undotted_name(path)
+    if undotted_path != path:
+        path.rename(undotted_path)
+    return undotted_path
+
+def _unhide_linux(path: Path) -> Path:
+    """
+    Rename away the dotfile prefix - the entire Linux unhiding mechanism, 
+    mirroring _hide_linux exactly.
+    """
+
+    undotted_path = _undotted_name(path)
+    if undotted_path != path:
+        path.rename(undotted_path)
+    return undotted_path
+
+def unhide_path(path: str | Path) -> Path:
+    """
+    Reverse of hide_path(): restore a previously hidden file or
+    folder to normal visibility, using the appropriate mechanism for
+    the current OS.
+ 
+    Args:
+        path: the currently-hidden file or folder to restore. On
+            macOS/Linux this should be the dotfile path (i.e. the
+            path hide_path() actually returned), not the original
+            pre-hide name.
+ 
+    Returns:
+        The path to the now-visible item — on macOS/Linux this may
+        differ from the input path, since unhiding there means
+        renaming away the dotfile prefix.
+ 
+    Raises:
+        HideError: if the current OS isn't recognized, or the
+            underlying OS call fails.
+    """
+
+    path = Path(path).resolve()
+    system = platform.system()
+
+    if system == "Windows":
+        return _unhide_windows(path)
+    elif system == "Darwin":
+        return _unhide_macos(path)
+    elif system == "Linux":
+        return _unhide_linux(path)
+    else:
+        raise HideError(f"Unsupported OS for unhiding: {system!r}")
