@@ -258,7 +258,7 @@ def undisguise_vault(original_name: str, base_path: str | Path = ".") -> Path:
             f"Registry points to '{disguised_path}', but it doesn't exist."
         )
 
-    original_path = base_path / disguised_name
+    original_path = base_path / original_name 
     os.rename(disguised_path, original_path)
 
     del registry[original_name]
