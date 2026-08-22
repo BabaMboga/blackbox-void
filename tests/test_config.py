@@ -37,7 +37,7 @@ def test_init_void_creates_readme_inside_fresh_void(tmp_path):
     """
 
     result = init_void(base_path=tmp_path)
-    readme = result / "REAADME.txt"
+    readme = result / "README.txt"
     assert readme.exists()
     assert "Void" in readme.read_text()
 
@@ -125,7 +125,7 @@ def test_load_disguise_config_return_defaults_on_empty_list(tmp_path):
     """
 
     config_path = tmp_path / ".blackbox_disguise.json"
-    config_path.write_text(json.dumps({"disguise_names"}))
+    config_path.write_text(json.dumps({"disguise_names": []}))
 
     names = _load_disguise_config(base_path=tmp_path)
     assert names == DEFAULT_DISGUISE_NAMES
@@ -171,18 +171,18 @@ def test_disguise_vault_renames_the_file(tmp_path):
     assert disguise_path.exists()
     assert not vault_file.exists()
 
-def test_disguise_vault_preservers_file_content(tmp_path):
+def test_disguise_vault_preserves_file_content(tmp_path):
     """
     Renaming must never alter the file's actual bytes — this is supposed to be a 
     purely cosmetic operation.
     """
 
     vault_file = tmp_path / "The Void.vault"
-    vault_file.write_text("preious encrypted cargo")
+    vault_file.write_text("precious encrypted cargo")
 
     digsuised_path = disguise_vault(vault_file, base_path=tmp_path)
 
-    assert digsuised_path.read_text() == "preciouse encrypted cargo"
+    assert digsuised_path.read_text() == "precious encrypted cargo"
 
 def test_disguise_vault_uses_a_name_from_the_candidate_list(tmp_path):
     """
@@ -268,7 +268,7 @@ def test_undisguise_vault_preserves_file_content(tmp_path):
     Content must survive the full disguise -> undisguise round trip untouched.
     """
     vault_file = tmp_path / "The Void.vault"
-    vault_file.write_text("precious encryted cargo")
+    vault_file.write_text("precious encrypted cargo")
     disguise_vault(vault_file, base_path=tmp_path)
 
     restored = undisguise_vault("The Void.vault", base_path=tmp_path)
