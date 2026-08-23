@@ -164,3 +164,39 @@ class MatrixRain:
         if self._thread is not None:
             self._thread.join(timeout=timeout)
             self._thread = None
+
+@contextmanager
+def matrix_rain_during(
+    fast: bool = False,
+    width: int = DEFAULT_WIDTH,
+    height: int = DEFAULT_HEIGHT,
+    frame_delay: float = DEFAULT_FRAME_DELAY,
+    console: Console | None = None,
+) -> Iterator[None]:
+    """
+    Show the Matrix-rain animation for the duration of the wrapped block of code, unless fast=True.
+
+    Intended usage, wrapping a real lock/unlock call:
+
+        with matrix_rain_during(fast=args.fast):
+            vault.lock(folder_path, password)
+
+    Args:
+        fast: if True (the CLI's --fast flag), skip the animation entirely - no thread is started, no frames 
+            rendered, and the wrapped block runs at full, undecorated speed.
+        width: number of character columns.
+        height: number of character rows.
+        frame_delay: seconds to sleep between animation frames.
+        console: an existing rich Consoleto render into. If omitted, a new one is created.
+    """
+
+    if fast:
+        yield
+        return
+
+    rain = MatrixRain(width=width, height=height, frame_delay=frame_delay, console=console)
+    rain.start()
+    try:
+        yield
+    finally:
+        rain.stop()
