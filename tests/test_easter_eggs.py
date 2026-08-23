@@ -100,7 +100,7 @@ def test_print_random_trivia_writes_to_given_console():
     """Passing an explicit Console should result in that console
     actually receiving output — not silently going elsewhere.
     """
-    console = Console(record=True, width=200)
+    console = Console(record=True, width=500)
     print_random_trivia(console)
     output = console.export_text()
 
@@ -112,7 +112,7 @@ def test_print_random_trivia_output_matches_a_known_fact():
     verbatim, proving the print function isn't printing something
     unrelated to the content pool.
     """
-    console = Console(record=True, width=200)
+    console = Console(record=True, width=500)
     print_random_trivia(console)
     output = console.export_text()
 
@@ -124,7 +124,7 @@ def test_print_random_trivia_does_not_leak_markup_tags():
     not appear as literal bracket text in the output — this would
     indicate a malformed markup string.
     """
-    console = Console(record=True, width=200)
+    console = Console(record=True, width=500)
     print_random_trivia(console)
     output = console.export_text()
 
@@ -136,7 +136,7 @@ def test_print_random_system_message_writes_to_given_console():
     """Same output-reaches-console guarantee for the fake system
     message print function.
     """
-    console = Console(record=True, width=200)
+    console = Console(record=True, width=500)
     print_random_system_message(console)
     output = console.export_text()
 
@@ -147,7 +147,7 @@ def test_print_random_system_message_output_matches_a_known_message():
     """The printed text should contain one of the real fake messages
     verbatim.
     """
-    console = Console(record=True, width=200)
+    console = Console(record=True, width=500)
     print_random_system_message(console)
     output = console.export_text()
 
@@ -158,7 +158,7 @@ def test_print_random_system_message_does_not_leak_markup_tags():
     """Same markup-doesn't-leak guarantee for the fake message print
     function.
     """
-    console = Console(record=True, width=200)
+    console = Console(record=True, width=500)
     print_random_system_message(console)
     output = console.export_text()
 
@@ -184,7 +184,7 @@ def test_print_access_attempt_flavor_writes_something(monkeypatch):
     """Calling the combined flavor function should always produce
     some output, regardless of which pool it happens to draw from.
     """
-    console = Console(record=True, width=200)
+    console = Console(record=True, width=500)
     print_access_attempt_flavor(console)
     output = console.export_text()
 
@@ -197,7 +197,7 @@ def test_print_access_attempt_flavor_can_produce_trivia(monkeypatch):
     actually reachable, not dead code.
     """
     monkeypatch.setattr(random, "random", lambda: 0.0)  # always < 0.5
-    console = Console(record=True, width=200)
+    console = Console(record=True, width=500)
     print_access_attempt_flavor(console)
     output = console.export_text()
 
@@ -210,7 +210,7 @@ def test_print_access_attempt_flavor_can_produce_system_message(monkeypatch):
     reachable too, not just the trivia path.
     """
     monkeypatch.setattr(random, "random", lambda: 0.99)  # always >= 0.5
-    console = Console(record=True, width=200)
+    console = Console(record=True, width=500)
     print_access_attempt_flavor(console)
     output = console.export_text()
 
@@ -227,7 +227,7 @@ def test_print_access_attempt_flavor_roughly_balanced_over_many_calls():
     saw_system_message = False
 
     for _ in range(100):
-        console = Console(record=True, width=200)
+        console = Console(record=True, width=500)
         print_access_attempt_flavor(console)
         output = console.export_text()
 
