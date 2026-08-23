@@ -261,3 +261,23 @@ GLYPH_TABLE: dict[str, str] = {
 # sets per letter would just look inconsistent rather than more authentic.
 
 GLYPH_TABLE.update({k.upper(): v for k, v in GLYPH_TABLE.items()})
+
+def to_glyphs(text: str) -> str:
+    """
+    Transliterate a string into its glyph/rune equivalent, purely for flavor-text rendering.
+
+    Only Latin letters are substituted; digits, punctuation and whitespace pass through unchanged, since there's no sensible runic
+    equivalent for a period or a space and forcing one would hurt readability of the surrounding "translation" rather than add to 
+    the effect.
+
+    This is a one-way cosmetic swap, not a cipher - there's no corresponding from_glyphs() function, because nothing here is meant
+    to be decrypted. It's flavor text, not a puzzle.
+
+    Args:
+        text: the plain text to transliterate.
+
+    Returns:
+        The transliterated string, same length as the input.
+    """
+
+    return "".join(GLYPH_TABLE.get(char, char) for char in text)
