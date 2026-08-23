@@ -235,3 +235,29 @@ def print_access_attempt_flavor(console: Console | None = None) -> None:
         print_random_trivia(console)
     else:
         print_random_system_message(console)
+
+
+# --- Glyph/rune substitution ----
+# A purely cosmetic transliteration table, mapping ordinary Latin letters to Elder Futhark runic Unicode characters (U+16A0-U+16F0).
+# This NEVER touches passwords, keys or any actual encryption - it's flavor text only, used to render the occasional "alien 
+# transmission" -looking phrase in the terminal. The substitution is not reversible in any cryptographic sense; it's a straight
+# character-for-character cosmetic swap, easily reversed by anyone who cares to, and never intended to hide meaning from a 
+# determined reader.
+# 
+# Did you know: the real Elder Futhark alphabet was used across Germanic Europe from roughly the 2nd to 8th centuries CE, and each
+# rune traditionally carried its own name and symbolic meaning beyond just its sound - closer to a hieroglyph than a modern letter.
+
+
+GLYPH_TABLE: dict[str, str] = {
+    "a": "ᚨ", "b": "ᛒ", "c": "ᚲ", "d": "ᛞ", "e": "ᛖ",
+    "f": "ᚠ", "g": "ᚷ", "h": "ᚺ", "i": "ᛁ", "j": "ᛃ",
+    "k": "ᚴ", "l": "ᛚ", "m": "ᛗ", "n": "ᚾ", "o": "ᛟ",
+    "p": "ᛈ", "q": "ᛩ", "r": "ᚱ", "s": "ᛊ", "t": "ᛏ",
+    "u": "ᚢ", "v": "ᚡ", "w": "ᚹ", "x": "ᛪ", "y": "ᚤ",
+    "z": "ᛎ",
+}
+
+# Uppercasee input maps to the same glyphs as lowercase - runes have no case distinction, and mixing two visually different glyph
+# sets per letter would just look inconsistent rather than more authentic.
+
+GLYPH_TABLE.update({k.upper(): v for k, v in GLYPH_TABLE.items()})
