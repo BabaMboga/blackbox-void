@@ -41,7 +41,7 @@ _CHAR_POOL = (
 DEFAULT_WIDTH = 60
 DEFAULT_HEIGHT = 12
 DEFAULT_FRAME_DELAY = 0.08 # seconds between frames
-_TRIAL_LENGTH = 4 # rows behind the bright head that stay lit, dimmer
+_TRAIL_LENGTH = 4 # rows behind the bright head that stay lit, dimmer
 
 def _random_char() -> str:
     """
@@ -99,9 +99,9 @@ class _MatrixRainFrame:
                 distance = row - self.heads[col]
                 if distance == 0:
                     style = Style(color="bright_green", bold=True)
-                elif 0 < distance <= _TRIAL_LENGTH:
+                elif 0 < distance <= _TRAIL_LENGTH:
                     style = Style(color="green") 
-                elif distance > _TRIAL_LENGTH:
+                elif distance > _TRAIL_LENGTH:
                     style = Style(color="green", dim=True)
                 else:
                     # Above the head: not yet "fallen" here this cycle.
