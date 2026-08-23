@@ -281,3 +281,14 @@ def to_glyphs(text: str) -> str:
     """
 
     return "".join(GLYPH_TABLE.get(char, char) for char in text)
+
+def print_glyph_text(text: str, console: Console | None = None) -> None:
+    """
+    Print a string transliterated into runic glyphs, styled distinctly to read as an "alien transmission."
+
+    Args:
+        text: the plain text to transliterate and print.
+        console: an existing rich Console to print to. If omitted, a new one is created.
+    """
+    console = console or Console()
+    console.print(f"[bold magenta]{to_glyphs(text)}[/bold magenta]")
