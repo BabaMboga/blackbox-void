@@ -79,6 +79,37 @@ def status(name: str) -> None:
             f"[dim]'{name}' hasn't been created yet. Run "
             f"[bold]blackbox init[/bold] to get started.[/dim]"
         )
+
+@main.command()
+@click.argument("folder", default=DEFAULT_VAULT_NAME, required=False)
+@click.option("--fast", is_flag=True, help="Skip the Matrix-rain animation.")
+def lock(folder: str, fast: bool) -> None:
+    """
+    Encrypt FOLDER into a sealed .vault file. Defaults to "The Void".
+    """
+    folder_path = Path(folder)
+
+    if not folder_path.exists():
+        console.print(f"[bold red]Error:[/bold red] '{folder}' does not exist.")
+        sys.exit(1)
+    if not folder_path.is_dir():
+        console.print(f"[bold red]Error:[/bold red] '{folder}' is not a folder.")
+        sys.exit(1)
+
+    password = click.prompt(
+        "Password", hide_input=True, confirmation_prompt=True
+    )
+
+    print_access_attempt_flavor(console)
+
+    try:
+        with matrix_rain_during(fast=fast, console=console):
+            vault_path = vault_lock(folder_path, password)
+    except VaultError as exc:
+        console.print(f"[bold red]Lock failed:[/bold red] {exc}")
+        sys.exit(1)
+
+    console.print(f"[bold green]Sealed:[/bold green] {vault_path}")
     
 
 if __name__ == "__main__":
