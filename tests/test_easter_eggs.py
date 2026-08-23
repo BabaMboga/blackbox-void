@@ -16,11 +16,14 @@ from rich.console import Console
 from blackbox.easter_eggs import (
     FAKE_SYSTEM_MESSAGES,
     TRIVIA_FACTS,
+    GLYPH_TABLE,
     get_random_system_message,
     get_random_trivia,
     print_access_attempt_flavor,
     print_random_system_message,
     print_random_trivia,
+    print_glyph_text,
+    to_glyphs,
 )
 
 
@@ -100,7 +103,7 @@ def test_print_random_trivia_writes_to_given_console():
     """Passing an explicit Console should result in that console
     actually receiving output — not silently going elsewhere.
     """
-    console = Console(record=True, width=500)
+    console = Console(record=True, width=400)
     print_random_trivia(console)
     output = console.export_text()
 
@@ -112,7 +115,7 @@ def test_print_random_trivia_output_matches_a_known_fact():
     verbatim, proving the print function isn't printing something
     unrelated to the content pool.
     """
-    console = Console(record=True, width=500)
+    console = Console(record=True, width=400)
     print_random_trivia(console)
     output = console.export_text()
 
@@ -124,7 +127,7 @@ def test_print_random_trivia_does_not_leak_markup_tags():
     not appear as literal bracket text in the output — this would
     indicate a malformed markup string.
     """
-    console = Console(record=True, width=500)
+    console = Console(record=True, width=400)
     print_random_trivia(console)
     output = console.export_text()
 
@@ -136,7 +139,7 @@ def test_print_random_system_message_writes_to_given_console():
     """Same output-reaches-console guarantee for the fake system
     message print function.
     """
-    console = Console(record=True, width=500)
+    console = Console(record=True, width=400)
     print_random_system_message(console)
     output = console.export_text()
 
@@ -147,7 +150,7 @@ def test_print_random_system_message_output_matches_a_known_message():
     """The printed text should contain one of the real fake messages
     verbatim.
     """
-    console = Console(record=True, width=500)
+    console = Console(record=True, width=400)
     print_random_system_message(console)
     output = console.export_text()
 
@@ -158,7 +161,7 @@ def test_print_random_system_message_does_not_leak_markup_tags():
     """Same markup-doesn't-leak guarantee for the fake message print
     function.
     """
-    console = Console(record=True, width=500)
+    console = Console(record=True, width=400)
     print_random_system_message(console)
     output = console.export_text()
 
@@ -184,7 +187,7 @@ def test_print_access_attempt_flavor_writes_something(monkeypatch):
     """Calling the combined flavor function should always produce
     some output, regardless of which pool it happens to draw from.
     """
-    console = Console(record=True, width=500)
+    console = Console(record=True, width=400)
     print_access_attempt_flavor(console)
     output = console.export_text()
 
@@ -197,7 +200,7 @@ def test_print_access_attempt_flavor_can_produce_trivia(monkeypatch):
     actually reachable, not dead code.
     """
     monkeypatch.setattr(random, "random", lambda: 0.0)  # always < 0.5
-    console = Console(record=True, width=500)
+    console = Console(record=True, width=400)
     print_access_attempt_flavor(console)
     output = console.export_text()
 
@@ -210,7 +213,7 @@ def test_print_access_attempt_flavor_can_produce_system_message(monkeypatch):
     reachable too, not just the trivia path.
     """
     monkeypatch.setattr(random, "random", lambda: 0.99)  # always >= 0.5
-    console = Console(record=True, width=500)
+    console = Console(record=True, width=400)
     print_access_attempt_flavor(console)
     output = console.export_text()
 
@@ -227,7 +230,7 @@ def test_print_access_attempt_flavor_roughly_balanced_over_many_calls():
     saw_system_message = False
 
     for _ in range(100):
-        console = Console(record=True, width=500)
+        console = Console(record=True, width=400)
         print_access_attempt_flavor(console)
         output = console.export_text()
 
@@ -241,3 +244,138 @@ def test_print_access_attempt_flavor_roughly_balanced_over_many_calls():
 
     assert saw_trivia
     assert saw_system_message
+
+
+# --- GLYPH_TABLE: content integrity ---------------------------------------
+
+def test_glyph_table_covers_all_lowercase_letters():
+    """Every lowercase Latin letter must have a rune mapping — a gap
+    here would mean some letters silently pass through untransformed
+    in to_glyphs(), breaking the illusion for whatever word happened
+    to contain that letter.
+    """
+    assert all(char in GLYPH_TABLE for char in "abcdefghijklmnopqrstuvwxyz")
+
+
+def test_glyph_table_covers_all_uppercase_letters():
+    """Same full-coverage guarantee for uppercase letters."""
+    assert all(char in GLYPH_TABLE for char in "ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+
+
+def test_glyph_table_maps_upper_and_lower_to_the_same_glyph():
+    """Runes have no case distinction, so the same letter in either
+    case should transliterate to an identical glyph — two different
+    glyphs for 'a' and 'A' would look like an inconsistency rather
+    than an intentional stylistic choice.
+    """
+    for lower_char in "abcdefghijklmnopqrstuvwxyz":
+        upper_char = lower_char.upper()
+        assert GLYPH_TABLE[lower_char] == GLYPH_TABLE[upper_char]
+
+
+def test_glyph_table_values_are_all_non_empty_strings():
+    """Every mapped glyph should be real, renderable content — not an
+    empty string, which would silently delete letters during
+    transliteration instead of replacing them.
+    """
+    assert all(isinstance(v, str) and len(v) > 0 for v in GLYPH_TABLE.values())
+
+
+# --- to_glyphs(): transliteration behavior --------------------------------
+
+def test_to_glyphs_transforms_known_letters():
+    """A string made entirely of mapped letters should come out
+    entirely transformed — no original Latin characters left behind.
+    """
+    result = to_glyphs("abc")
+    assert result == GLYPH_TABLE["a"] + GLYPH_TABLE["b"] + GLYPH_TABLE["c"]
+
+
+def test_to_glyphs_preserves_length():
+    """The transliteration is a strict one-for-one character swap —
+    the output must always be exactly as long as the input, with
+    nothing merged, dropped, or expanded.
+    """
+    sample = "Hello, World! 123"
+    assert len(to_glyphs(sample)) == len(sample)
+
+
+def test_to_glyphs_preserves_digits_punctuation_and_spaces():
+    """Characters with no rune equivalent (digits, punctuation,
+    whitespace) should pass through completely unchanged, since
+    forcing a substitution for them wouldn't have any sensible
+    "alien" equivalent and would just look broken.
+    """
+    sample = "1, 2, 3 - go!"
+    result = to_glyphs(sample)
+    assert result.count("1") == sample.count("1")
+    assert result.count(",") == sample.count(",")
+    assert result.count(" ") == sample.count(" ")
+    assert result.count("!") == sample.count("!")
+
+
+def test_to_glyphs_handles_empty_string():
+    """An empty input should produce an empty output, not raise."""
+    assert to_glyphs("") == ""
+
+
+def test_to_glyphs_is_case_consistent_with_glyph_table():
+    """Transliterating the same word in both cases should produce
+    identical glyph output, mirroring the case-insensitivity already
+    verified directly on GLYPH_TABLE itself.
+    """
+    assert to_glyphs("void") == to_glyphs("VOID")
+
+
+def test_to_glyphs_output_contains_no_original_latin_letters():
+    """A sanity check on the illusion itself: transliterating a
+    letters-only string should leave zero recognizable Latin
+    characters in the output — if even one slipped through untouched,
+    the "alien transmission" effect would be broken.
+    """
+    result = to_glyphs("blackbox")
+    assert not any(char in result for char in "blackbox")
+
+
+# --- print_glyph_text(): rendering -----------------------------------------
+
+def test_print_glyph_text_writes_to_given_console():
+    """Passing an explicit Console should result in that console
+    actually receiving the rendered glyph output.
+    """
+    console = Console(record=True, width=200)
+    print_glyph_text("The Void", console)
+    output = console.export_text()
+
+    assert output.strip() != ""
+
+
+def test_print_glyph_text_output_matches_transliteration():
+    """The printed text should contain the exact glyph transliteration
+    of the input, proving the print function doesn't alter or
+    re-transform the already-converted text.
+    """
+    console = Console(record=True, width=200)
+    print_glyph_text("void", console)
+    output = console.export_text()
+
+    assert to_glyphs("void") in output
+
+
+def test_print_glyph_text_does_not_leak_markup_tags():
+    """rich markup like [bold magenta] should be rendered as styling,
+    not appear as literal bracket text in the output.
+    """
+    console = Console(record=True, width=200)
+    print_glyph_text("test", console)
+    output = console.export_text()
+
+    assert "[bold" not in output
+    assert "[/bold" not in output
+
+
+def test_print_glyph_text_creates_its_own_console_when_none_given():
+    """Callers shouldn't be required to pass a Console — omitting it
+    should just work without raising.
+    """
+    print_glyph_text("The Void")  # should not raise
