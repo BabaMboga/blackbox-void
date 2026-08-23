@@ -110,3 +110,57 @@ class _MatrixRainFrame:
             if row < self.height - 1:
                 text.append("\n")
         return text
+
+class MatrixRain:
+    """
+    Runs the Matrix-rain animation on a background thread until stopped. Prefer matrix_rain_during() over using
+    this class directly - it handles start/stop safely as a context manager.
+    """
+
+    def __init__(
+            self,
+            width: int = DEFAULT_WIDTH,
+            height: int = DEFAULT_HEIGHT,
+            frame_delay: float = DEFAULT_FRAME_DELAY,
+            console: Console | None = None,
+    ) -> None:
+        self.width = width
+        self.height = height
+        self.frame_delay = frame_delay
+        self.console = console or Console()
+        self._frame = _MatrixRainFrame.new(width, height)
+        self._stop_event = threading.Event()
+        self._thread: threading.Thread | None = None
+
+    def _run(self) -> None:
+        with Live(
+            self._frame.render(),
+            console = self.console,
+            refresh_per_second=max(1, int(1 / self.frame_delay)),
+            transient=True, # clear the animation from the terminal on stop
+        ) as live:
+            while not self._stop_event.is_set():
+                self._frame.step()
+                live.update(self._frame.render())
+                time.sleep(self.frame_delay)
+
+    def start(self) -> None:
+        """
+        Start animating on a background thread. Safe to call once per instance; calling start() twice without 
+        an intervening stop() has no additional effect.
+        """
+        if self._thread is not None and self._thread.is_alive():
+            return
+        self._stop_event.clear()
+        self._thread = threading.Thread(target=self._run, daemon=True)
+        self._thread.start()
+
+    def stop(self, timeout: float = 2.0) -> None:
+        """
+        Signal the background thread to stop and wait for it to finish. Safe to call even if starts() was never
+        called.
+        """
+        self._stop_event.set()
+        if self._thread is not None:
+            self._thread.join(timeout=timeout)
+            self._thread = None
