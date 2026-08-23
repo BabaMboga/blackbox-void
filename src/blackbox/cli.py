@@ -57,9 +57,29 @@ def init(name: str) -> None:
     console.print(f"[bold green]Ready:[/bold green] {result}")
 
 @main.command()
-def status():
-    """Check that blackbox is installed and reachable."""
-    click.echo("Blackbox is alive.")
+@click.option(
+    "--name",
+    default=DEFAULT_VAULT_NAME,
+    show_default=True,
+    help="Name of the vault to check.",
+)
+def status(name: str) -> None:
+    """
+    Show whether a vault is currently locked or unlocked.
+    """
+    void_path = Path(".") / name
+    vault_path = Path(".") / f"{name}.vault"
+
+    if vault_path.exists():
+        console.print(f"[bold yellow]Locked.[/bold yellow] '{vault_path}' exists.")
+    elif void_path.exists():
+        console.print(f"[bold green]Unlocked.[/bold green] '{void_path}' exists.")
+    else:
+        console.print(
+            f"[dim]'{name}' hasn't been created yet. Run "
+            f"[bold]blackbox init[/bold] to get started.[/dim]"
+        )
+    
 
 if __name__ == "__main__":
     main()
