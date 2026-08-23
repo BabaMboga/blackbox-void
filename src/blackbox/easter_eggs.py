@@ -221,3 +221,17 @@ def print_random_system_message(console: Console | None = None) -> None:
 
     console = console or Console()
     console.print(f"[bold red]>> {get_random_system_message()}[/bold red]")
+
+def print_access_attempt_flavor(console: Console | None = None) -> None:
+    """
+    Print one random piece of flavor text - either a real trivia fact or a fake ominous system message, chosen with equal probability 
+    - intended to be called on each vault access attempt(lock or unlock).
+
+    Args:
+        console: an existing rich Console to print to. If omitted, a new one is created.
+    """
+    console = console or Console()
+    if random.random() < 0.5:
+        print_random_trivia(console)
+    else:
+        print_random_system_message(console)
