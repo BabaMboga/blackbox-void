@@ -110,6 +110,33 @@ def lock(folder: str, fast: bool) -> None:
         sys.exit(1)
 
     console.print(f"[bold green]Sealed:[/bold green] {vault_path}")
+
+@main.command()
+@click.argument("folder", default=DEFAULT_VAULT_NAME, required=False)
+@click.option("--fast", is_flag=True, help="Skip the Matrix-rain animation.")
+def unlock(folder: str, fast: bool) -> None:
+    """
+    Decrypt FOLDER.vault back into FOLDER. Defaults to "The Void".
+    """
+    vault_path = Path(f"{folder}.vault")
+
+    if not vault_path.exists():
+        console.print(f"[bold red]Error:[/bold red] '{vault_path}' does not exist.")
+        sys.exit(1)
+
+    password = click.prompt("Password", hide_input=True)
+
+    print_access_attempt_flavor(console)
+
+    try:
+        with matrix_rain_during(fast=fast, console=console):
+            restored_path = vault_unlock(vault_path, password)
+    except VaultError as exc:
+        console.print(f"[bold red]Unlock failed:[/bold red] {exc}")
+        sys.exit(1)
+
+    console.print(f"[bold green]Restored:[/bold green] {restored_path}")
+
     
 
 if __name__ == "__main__":
