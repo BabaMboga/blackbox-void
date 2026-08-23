@@ -184,3 +184,40 @@ FAKE_SYSTEM_MESSAGES = [
     "Consulting 47 terabytes of classified intelligence... "
     "(the database contains mostly cat pictures and questionable PDFs)",
 ]
+
+def get_random_trivia() -> str:
+    """
+    Return one randomly chosen trivia fact
+    """
+
+    return random.choice(TRIVIA_FACTS)
+
+def get_random_system_message() -> str:
+    """
+    Return one randomly chosen fake ominous system message
+    """
+
+    return random.choice(FAKE_SYSTEM_MESSAGES)
+
+def print_random_trivia(console: Console | None = None) -> None:
+    """
+    Print one randomly chosen trivia fact to the console.
+
+    Args:
+        console: an existing rich Console to print to. If omitted, a new one is created - callers that already have a shared Console
+            (e.g. the CLI) should pass it in, so output stays on the same stream/styling context. 
+    """
+
+    console = console or Console()
+    console.print(f"[dim italic]Did you know: {get_random_trivia()}[/dim italic]")
+
+def print_random_system_message(console: Console | None = None) -> None:
+    """
+    Print one randomly chosen fake ominous system message to the console.
+
+    Args:
+        console: an existing rich Console to print to. If omitted, a new one is created.
+    """
+
+    console = console or Console()
+    console.print(f"[bold red]>> {get_random_system_message()}[/bold red]")
