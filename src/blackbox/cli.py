@@ -36,6 +36,27 @@ def main() -> None:
     pass
 
 @main.command()
+@click.option(
+    "--name",
+    default=DEFAULT_VAULT_NAME,
+    show_default=True,
+    help="Name to use for the vault folder."
+)
+def init(name: str) -> None:
+    """
+    Create The Void, if it doesn't already exist
+    """
+    result = init_void(name=name)
+
+    if result is None:
+        console.print(
+            f"[bold yellow]'{name}' is currently locked.[/bold yellow] "
+            f"Run [bold]blackbox unlock \"{name}\"[/bold] to access it."
+        )
+        return
+    console.print(f"[bold green]Ready:[/bold green] {result}")
+
+@main.command()
 def status():
     """Check that blackbox is installed and reachable."""
     click.echo("Blackbox is alive.")
