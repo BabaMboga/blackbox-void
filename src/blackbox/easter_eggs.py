@@ -119,3 +119,68 @@ TRIVIA_FACTS = [
     "what \"random\" should look like.",
 ]
 
+# --- Fake ominous system messages ----
+# Purely theatrical. None of these correspond to anything real happening under the hood - they're a wink at hacker-movie tropes, not a
+# not a genuine threat or an attempt to actually intimidate anyone.
+
+FAKE_SYSTEM_MESSAGES = [
+    "Rerouting request through seventeen proxy servers... "
+    "(there are zero proxy servers)",
+ 
+    "Cross-referencing biometric signature database... "
+    "(this vault does not have a camera)",
+ 
+    "Alerting local authorities of unauthorized access attempt... "
+    "(it is not)",
+ 
+    "Engaging quantum decryption countermeasures... "
+    "(quantum computers cannot help you here, or anywhere, yet)",
+ 
+    "Pinging mainframe for authorization override... "
+    "(there is no mainframe)",
+ 
+    "Deploying countersurveillance protocols... "
+    "(the only surveillance here is you, reading this)",
+ 
+    "Initiating self-destruct sequence in 3... 2... "
+    "(there is no self-destruct sequence)",
+ 
+    "Notifying your IT department of this attempt... "
+    "(you do not have an IT department)",
+ 
+    "Compiling dossier on unauthorized user... "
+    "(it contains one entry: \"tried a password\")",
+ 
+    "Activating laser grid... "
+    "(there is, upsettingly, no laser grid)",
+
+    "Consulting the Oracle of Cryptographic Wisdom... "
+    "(the Oracle is currently unavailable for comment)",
+
+    "Checking satellite uplink for secondary authentication... "
+    "(the satellite has better things to do)",
+
+    "Deploying twelve highly trained security hamsters... "
+    "(the hamsters have unionized)",
+
+    "Scanning the vault for hostile lifeforms... "
+    "(one suspicious lifeform detected: you)",
+
+    "Establishing encrypted communication with the Pentagon... "
+    "(the Pentagon was not consulted about this)",
+
+    "Calculating probability of successful intrusion... "
+    "(calculation terminated after discovering you know the password)",
+
+    "Activating emergency anti-hacker lasers... "
+    "(budget constraints have unfortunately cancelled the lasers)",
+
+    "Contacting the ancient custodians of The Void... "
+    "(they left no forwarding address)",
+
+    "Running advanced facial recognition protocol... "
+    "(Blackbox has neither a face nor the emotional capacity to care)",
+
+    "Consulting 47 terabytes of classified intelligence... "
+    "(the database contains mostly cat pictures and questionable PDFs)",
+]
