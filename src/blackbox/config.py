@@ -226,6 +226,19 @@ def disguise_vault(vault_path: str | Path, base_path: str | Path = ".") -> Path:
 
     return disguised_path
 
+def forget_disguise_entry(original_name: str, base_path: str | Path = ".") -> None:
+    """
+    Remove a disguise registry entry without touching the filesystem.
+
+    Used after vault.unlock() has already deleted the disguised file itself (its default behavior on success ) - at
+    that point there's nothing left to rename, only a now-stale registry mapping to clean up so it doesn't linger 
+    and confuse a future lookup. 
+    """
+    registry = _load_disguise_registry(base_path)
+    if original_name in registry:
+        del registry[original_name]
+        _save_disguise_registry(base_path, registry)
+
 def undisguise_vault(original_name: str, base_path: str | Path = ".") -> Path:
     """
     Reverse of disguise_vault(): look up a vault's disguised name in the registry, rename it back to its original, 
