@@ -235,3 +235,60 @@ def print_access_attempt_flavor(console: Console | None = None) -> None:
         print_random_trivia(console)
     else:
         print_random_system_message(console)
+
+
+# --- Glyph/rune substitution ----
+# A purely cosmetic transliteration table, mapping ordinary Latin letters to Elder Futhark runic Unicode characters (U+16A0-U+16F0).
+# This NEVER touches passwords, keys or any actual encryption - it's flavor text only, used to render the occasional "alien 
+# transmission" -looking phrase in the terminal. The substitution is not reversible in any cryptographic sense; it's a straight
+# character-for-character cosmetic swap, easily reversed by anyone who cares to, and never intended to hide meaning from a 
+# determined reader.
+# 
+# Did you know: the real Elder Futhark alphabet was used across Germanic Europe from roughly the 2nd to 8th centuries CE, and each
+# rune traditionally carried its own name and symbolic meaning beyond just its sound - closer to a hieroglyph than a modern letter.
+
+
+GLYPH_TABLE: dict[str, str] = {
+    "a": "ᚨ", "b": "ᛒ", "c": "ᚲ", "d": "ᛞ", "e": "ᛖ",
+    "f": "ᚠ", "g": "ᚷ", "h": "ᚺ", "i": "ᛁ", "j": "ᛃ",
+    "k": "ᚴ", "l": "ᛚ", "m": "ᛗ", "n": "ᚾ", "o": "ᛟ",
+    "p": "ᛈ", "q": "ᛩ", "r": "ᚱ", "s": "ᛊ", "t": "ᛏ",
+    "u": "ᚢ", "v": "ᚡ", "w": "ᚹ", "x": "ᛪ", "y": "ᚤ",
+    "z": "ᛎ",
+}
+
+# Uppercasee input maps to the same glyphs as lowercase - runes have no case distinction, and mixing two visually different glyph
+# sets per letter would just look inconsistent rather than more authentic.
+
+GLYPH_TABLE.update({k.upper(): v for k, v in GLYPH_TABLE.items()})
+
+def to_glyphs(text: str) -> str:
+    """
+    Transliterate a string into its glyph/rune equivalent, purely for flavor-text rendering.
+
+    Only Latin letters are substituted; digits, punctuation and whitespace pass through unchanged, since there's no sensible runic
+    equivalent for a period or a space and forcing one would hurt readability of the surrounding "translation" rather than add to 
+    the effect.
+
+    This is a one-way cosmetic swap, not a cipher - there's no corresponding from_glyphs() function, because nothing here is meant
+    to be decrypted. It's flavor text, not a puzzle.
+
+    Args:
+        text: the plain text to transliterate.
+
+    Returns:
+        The transliterated string, same length as the input.
+    """
+
+    return "".join(GLYPH_TABLE.get(char, char) for char in text)
+
+def print_glyph_text(text: str, console: Console | None = None) -> None:
+    """
+    Print a string transliterated into runic glyphs, styled distinctly to read as an "alien transmission."
+
+    Args:
+        text: the plain text to transliterate and print.
+        console: an existing rich Console to print to. If omitted, a new one is created.
+    """
+    console = console or Console()
+    console.print(f"[bold magenta]{to_glyphs(text)}[/bold magenta]")
