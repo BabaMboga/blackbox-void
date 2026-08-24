@@ -48,6 +48,46 @@ from blackbox.vault import unlock as vault_unlock
 
 console = Console()
 
+def _locate_locked_vault(original_vault_name: str, base_path: Path) -> Path | None:
+    """
+    Find a locked (disguised + hidden) vault's actual current path on disk, 
+    without modifying anything.
+
+    Checks the disguise registry for the original vault filename's disguised 
+    name, then checks both possible on-disk forms that name could currently 
+    have — plain (Windows, or not-yet-hidden) or dotfile-prefixed (macOS/Linux, 
+    once hidden) — since we don't know which OS locked this vault or whether 
+    hiding fully succeeded.
+ 
+    Falls back to checking for the plain original filename directly, for vaults 
+    that were sealed without disguise/hide ever being applied (e.g. an older vault, 
+    or if hiding failed during lock).
+ 
+    Returns:
+        The vault's actual current path, or None if no locked vault is found under 
+        this name at all. 
+    """
+
+    registry = _load_disguise_registry(base_path)
+    disguised_name = registry.get(original_vault_name)
+
+    if disguised_name is not None:
+        plain_disguised = base_path / disguised_name
+        dotted_disguised = base_path / f".{disguised_name}"
+        if plain_disguised.exists():
+            return plain_disguised
+        if dotted_disguised.exists():
+            return dotted_disguised
+
+    # Fall back: no registry entry, or the registry pointed nowhere real. Check for
+    # a plain, undisguised, unhidden vault file.
+
+    plain_original = base_path / original_vault_name
+    if plain_original.exists():
+        return plain_original
+
+    return None
+
 def _conceal(vault_path: Path, base_path: Path) -> None:
     """
     Disguise and hide a sealed vault file. Best-effort on the hide step: 
@@ -103,11 +143,16 @@ def status(name: str) -> None:
     """
     Show whether a vault is currently locked or unlocked.
     """
-    void_path = Path(".") / name
-    vault_path = Path(".") / f"{name}.vault"
+    base_path = Path(".").resolve()
+    void_path = base_path / name
+    original_vault_name = f"{name}.vault"
 
-    if vault_path.exists():
-        console.print(f"[bold yellow]Locked.[/bold yellow] '{vault_path}' exists.")
+    locked_path = _locate_locked_vault(original_vault_name, base_path)
+
+    if locked_path is not None:
+        # Delibearately do NOT reveal the disguised filename here - printing
+        # it would defeat the entire point of disguising it.
+        console.print(f"[bold yellow]Locked.[/bold yellow] (hidden and disguised)")
     elif void_path.exists():
         console.print(f"[bold green]Unlocked.[/bold green] '{void_path}' exists.")
     else:
@@ -146,7 +191,10 @@ def lock(folder: str, fast: bool) -> None:
         console.print(f"[bold red]Lock failed:[/bold red] {exc}")
         sys.exit(1)
 
-    console.print(f"[bold green]Sealed:[/bold green] {vault_path}")
+    console.print(
+        f"[bold green]Sealed:[/bold green] The vault is now encrypted, "
+        "disguised, and hidden."
+    )
 
 @main.command()
 @click.argument("folder", default=DEFAULT_VAULT_NAME, required=False)
@@ -154,25 +202,79 @@ def lock(folder: str, fast: bool) -> None:
 def unlock(folder: str, fast: bool) -> None:
     """
     Decrypt FOLDER.vault back into FOLDER. Defaults to "The Void".
-    """
-    vault_path = Path(f"{folder}.vault")
 
-    if not vault_path.exists():
-        console.print(f"[bold red]Error:[/bold red] '{vault_path}' does not exist.")
+    Deliberately calls vault.unlock() directly on the still-disguised
+    filename, rather than undisguising to the plain original name
+    first. vault.unlock() reads the real original folder name from
+    the encrypted header, not from the vault file's own name — so
+    there's no need to expose the recognizable plain name at all
+    during an attempt. This matters concretely: if the password is
+    wrong, vault.unlock()'s own failed-attempt cooldown sidecar
+    (blackbox.vault step 10) gets created next to whatever filename it
+    was called with. Calling it on the disguised name means even that
+    sidecar file stays boring-looking, rather than leaking the vault's
+    real identity via a file like "The Void.vault.attempts.json"
+    sitting in plain sight after a failed guess.
+    """
+    base_path = Path(".").resolve()
+    original_vault_name = f"{folder}.vault"
+
+    located = _locate_locked_vault(original_vault_name, base_path)
+
+    if located is None:
+
+        console.print(f"[bold red]Error:[/bold red]no locked vault found for '{folder}'.")
         sys.exit(1)
 
     password = click.prompt("Password", hide_input=True)
 
     print_access_attempt_flavor(console)
 
+    revealed_path: Path | None = None
+
     try:
         with matrix_rain_during(fast=fast, console=console):
-            restored_path = vault_unlock(vault_path, password)
+            revealed_path = unhide_path(located)
+            # Call unlock directly on the still-dsiguised name - see 
+            # docstring above for why this ordering matters.
+            restored_folder = vault_unlock(revealed_path, password)
     except VaultError as exc:
+        # Wrong password or corruption. vault.unlock() has NOT deleted 
+        # the file in this case (it only deletes on success), so the 
+        # disguised file is still sitting there; its disguised name never
+        # changed) so a failed attempt never leaves it exposed.
+
+        if revealed_path is not None and revealed_path.exists():
+            try:
+                hide_path(revealed_path)
+            except Exception:
+                pass # best-effort; dont mask the real failure below
+
+            # vault.unlock() also writes a failed-attempt cooldown
+            # sidecar next to whatever filename it was called with -
+            # in this case, the still-boring disguised name, so it doesn't
+            # leak the vault's real identity. It's still plainly visible on its
+            # own, though, so hide it too for full concealment consistency.
+
+            sidecar_path = revealed_path.parent / f"{revealed_path.name}{ATTEMPTS_SIDECAR_SUFFIX}"
+
+            if sidecar_path.exists():
+                try:
+                    hide_path(sidecar_path)
+                except Exception:
+                    pass
+
         console.print(f"[bold red]Unlock failed:[/bold red] {exc}")
         sys.exit(1)
+    except HideError as exc:
+        console.print(f"[bold red]Unlock failed:[/bold red] could not reveal vault: {exc}")
+        sys.exit(1)
 
-    console.print(f"[bold green]Restored:[/bold green] {restored_path}")
+    # Success: vault.unlock() already deleted the disguised file itself, so there's
+    # nothing left to rename - just clean up the now-stale registry entry.
+    forget_disguise_entry(original_vault_name, base_path=base_path)
+
+    console.print(f"[bold green]Restored:[/bold green] {restored_folder}")
 
     
 
