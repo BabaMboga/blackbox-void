@@ -1,0 +1,42 @@
+name: CI
+
+# Runs the full test suite on every push and pull request, across all
+# three target OSes. This is deliberately separate from build.yml
+# (which packages standalone binaries and only runs on tagged
+# releases) — CI should run fast and often, on every change; building
+# binaries is a slower, less frequent, release-time concern.
+
+on:
+  push:
+    branches:
+      - main
+  pull_request: {}
+  workflow_dispatch: {}
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ["3.10", "3.11", "3.12"]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Run test suite
+        run: pytest -v
+
+      - name: Run test suite with coverage
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
+        run: pytest --cov=blackbox --cov-report=term-missing
