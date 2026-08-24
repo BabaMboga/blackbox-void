@@ -6,10 +6,20 @@ for the actual encryption, ui.matrix_rain_during() for the loading animation, an
 easter_eggs.print_access_attempt_flavor() for the trivia/fake-message flair. Every cinnabd's output
 is styled through a single shared rich Console instance.
 
-Not yet wired in: blackbox.hide (OS-level hiding) and the disguise naming system 
-(config.disguise_vault/undisguise_vault). Those involve real cross-platform ordering questions 
-(hide-then-disguise vs. disguise-then-hide behave differently depending on OS) that deserve their own 
-focused integration pass rather than being bolted on here.
+Concealment ordering (resolved cross-platform question):
+
+    LOCK: vault.lock() -> disguise_vault() -> hide_path()
+    UNLOCK: locate on disk -> unhide_path() -> undisguise_vault() -> vault.unlock()
+
+Locating the file on unlock is the tricky part, since hiding behaves differently per OS: on macOS/Linux, 
+hide_path() renames the disguised file to a dotfile; on Windows, it sets attributes in place without 
+renaming at all. So the disguised file could currently exist on disk under EITHER its plain disguised 
+name OR its dotfile-prefixed name, depending on which OS locked it. _locate_locked_vault() checks both
+candidate paths and uses whichever actually exists.
+ 
+A wrong password must never strip a vault's concealment. If vault.unlock() fails after the file has 
+already been revealed and undisguised, it gets re-disguised and re-hidden before the error is
+reported — a failed attempt should never leave a vault sitting around in plain, visible form.
 """
 
 from __future__ import annotations
@@ -20,14 +30,40 @@ from pathlib import Path
 import click
 from rich.console import Console
 
-from blackbox.config import DEFAULT_VAULT_NAME, init_void
+from blackbox.config import (
+    DEFAULT_VAULT_NAME,
+    _load_disguise_registry,
+    disguise_vault,
+    forget_disguise_entry,
+    init_void,
+)
+
 from blackbox.easter_eggs import print_access_attempt_flavor
+from blackbox.hide import HideError, hide_path, unhide_path
 from blackbox.ui import matrix_rain_during
 from blackbox.vault import VaultError
+from blackbox.vault import ATTEMPTS_SIDECAR_SUFFIX
 from blackbox.vault import lock as vault_lock
 from blackbox.vault import unlock as vault_unlock
 
 console = Console()
+
+def _conceal(vault_path: Path, base_path: Path) -> None:
+    """
+    Disguise and hide a sealed vault file. Best-effort on the hide step: 
+    if OS-level hiding fails (e.g. permissions), the vault stays disguised
+    but visible rather than failing the whole operation - the disguise alone
+    still provides some deterrent value.
+    """
+
+    disguised_path = disguise_vault(vault_path, base_path=base_path)
+    try:
+        hide_path(disguised_path)
+    except HideError as exc:
+        console.print(
+            f"[bold yellow]Warning:[/bold yellow] vault sealed and "
+            f"disguised, but hiding failed: {exc}"
+        )
 
 @click.group()
 @click.version_option(package_name="blackbox-vault")
@@ -105,6 +141,7 @@ def lock(folder: str, fast: bool) -> None:
     try:
         with matrix_rain_during(fast=fast, console=console):
             vault_path = vault_lock(folder_path, password)
+            _conceal(vault_path, base_path=vault_path.parent)
     except VaultError as exc:
         console.print(f"[bold red]Lock failed:[/bold red] {exc}")
         sys.exit(1)
