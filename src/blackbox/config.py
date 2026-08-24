@@ -92,10 +92,10 @@ DEFAULT_DISGUISE_NAMES = [
     "ntuser.dat.tmp",
     "swapfile.sys",
     "systemd-private-cache.db",
-    ".Trash-1000-cache",
+    "Trash-1000-cache",
     "com.apple.diagnostics.plist",
     "-$cachefile.tmp",
-    ".DS_Store.bak",
+    "DS_Store.bak",
 ]
 
 def _disguise_config_path(base_path: str | Path = ".") -> Path:
