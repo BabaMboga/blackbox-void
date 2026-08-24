@@ -1,0 +1,55 @@
+name: Build standalone binaries
+
+# Builds a double-clickable blackbox executable on each OS separately,
+# since PyInstaller cannot cross-compile — a binary built on Linux only
+# ever runs on Linux, so each target OS needs its own runner.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            build_script: installer/build_windows.py
+            artifact_name: blackbox-windows
+            binary_path: dist/blackbox.exe
+          - os: macos-latest
+            build_script: installer/build_macos.py
+            artifact_name: blackbox-macos
+            binary_path: dist/blackbox
+          - os: ubuntu-latest
+            build_script: installer/build_linux.py
+            artifact_name: blackbox-linux
+            binary_path: dist/blackbox
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Run test suite
+        run: pytest
+
+      - name: Build standalone binary
+        run: python ${{ matrix.build_script }}
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.binary_path }}
