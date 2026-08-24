@@ -92,10 +92,10 @@ DEFAULT_DISGUISE_NAMES = [
     "ntuser.dat.tmp",
     "swapfile.sys",
     "systemd-private-cache.db",
-    ".Trash-1000-cache",
+    "Trash-1000-cache",
     "com.apple.diagnostics.plist",
     "-$cachefile.tmp",
-    ".DS_Store.bak",
+    "DS_Store.bak",
 ]
 
 def _disguise_config_path(base_path: str | Path = ".") -> Path:
@@ -225,6 +225,19 @@ def disguise_vault(vault_path: str | Path, base_path: str | Path = ".") -> Path:
     _save_disguise_registry(base_path, registry)
 
     return disguised_path
+
+def forget_disguise_entry(original_name: str, base_path: str | Path = ".") -> None:
+    """
+    Remove a disguise registry entry without touching the filesystem.
+
+    Used after vault.unlock() has already deleted the disguised file itself (its default behavior on success ) - at
+    that point there's nothing left to rename, only a now-stale registry mapping to clean up so it doesn't linger 
+    and confuse a future lookup. 
+    """
+    registry = _load_disguise_registry(base_path)
+    if original_name in registry:
+        del registry[original_name]
+        _save_disguise_registry(base_path, registry)
 
 def undisguise_vault(original_name: str, base_path: str | Path = ".") -> Path:
     """
