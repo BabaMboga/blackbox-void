@@ -16,6 +16,11 @@ hide_path() renames the disguised file to a dotfile; on Windows, it sets attribu
 renaming at all. So the disguised file could currently exist on disk under EITHER its plain disguised 
 name OR its dotfile-prefixed name, depending on which OS locked it. _locate_locked_vault() checks both
 candidate paths and uses whichever actually exists.
+
+vault.unlock() is deliberately called on the disguised name, not the plain original name — it reads the 
+real folder name from the encrypted header, not from the filename, so there's no need to expose the recognizable 
+plain name during an attempt at all. This also means vault.py's own failed-attempt cooldown sidecar (step 10) 
+inherits the boring disguised name rather than leaking the vault's real identity.
  
 A wrong password must never strip a vault's concealment. If vault.unlock() fails after the file has 
 already been revealed and undisguised, it gets re-disguised and re-hidden before the error is
