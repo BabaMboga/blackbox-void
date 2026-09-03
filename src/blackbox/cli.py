@@ -345,6 +345,10 @@ def unlock(folder: str, fast: bool) -> None:
 
     console.print(f"[bold green]Restored:[/bold green] {restored_folder}")
 
+    # A deliberately rare, harmless joke on successful unlock.
+    if random.random() < 0.05:
+        _print_unlock_joke()
+
     
 
 if __name__ == "__main__":
