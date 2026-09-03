@@ -16,6 +16,11 @@ hide_path() renames the disguised file to a dotfile; on Windows, it sets attribu
 renaming at all. So the disguised file could currently exist on disk under EITHER its plain disguised 
 name OR its dotfile-prefixed name, depending on which OS locked it. _locate_locked_vault() checks both
 candidate paths and uses whichever actually exists.
+
+vault.unlock() is deliberately called on the disguised name, not the plain original name — it reads the 
+real folder name from the encrypted header, not from the filename, so there's no need to expose the recognizable 
+plain name during an attempt at all. This also means vault.py's own failed-attempt cooldown sidecar (step 10) 
+inherits the boring disguised name rather than leaking the vault's real identity.
  
 A wrong password must never strip a vault's concealment. If vault.unlock() fails after the file has 
 already been revealed and undisguised, it gets re-disguised and re-hidden before the error is
@@ -24,7 +29,9 @@ reported — a failed attempt should never leave a vault sitting around in plain
 
 from __future__ import annotations
 
+import random
 import sys
+import time
 from pathlib import Path
 
 import click
@@ -47,6 +54,55 @@ from blackbox.vault import lock as vault_lock
 from blackbox.vault import unlock as vault_unlock
 
 console = Console()
+
+# purely cosmetic easter-egg timing.This deliberately has no relationship to the vault's
+# actual security or cryptographic operations.
+_MAINFRAME_DELAY_SECONDS = 1.5 + random.random() * 2.0
+
+def _fake_mainframe_connection() -> None:
+    """
+    A purely cosmetic easter-egg: Preteneds to connect to a mainframe before a mundane CLI action.
+    """
+    console.print("[dim]Connecting to mainframe...[/dim]")
+    time.sleep(_MAINFRAME_DELAY_SECONDS)
+    console.print(" [green]Connected.[/green]")
+    console.print("[dim]Mainframe reports: everything is surprisingly and astonishingly normal.[/dim]")
+
+def _print_unlock_joke() -> None:
+    """
+    A purely cosmetic easter-egg: prints the rare-successful-unlock joke easter-egg.
+    This is deliberately not called automatically, but for only a fraction of the time.
+    """
+    jokes = [
+        "The vault opens, and inside is... a single, lonely sock. It seems to be waiting for its mate or the other unsannary activities you do with it.",
+        "You unlock the vault, and a tiny voice whispers: 'I knew you'd come back.'",
+        "Inside the vault, you find a note that says: 'Congratulations! You've unlocked the secrets of the universe. Just kidding, it's just a vault.'",
+        "The vault creaks open, revealing... a perfectly organized collection of rubber ducks. Quack! Quack! Quack!",
+        "As you unlock the vault, a holographic cat appears and says: 'Meow. You may proceed young padwan.'",
+        "Vault unlocked. Unfortunately, the treasure appears to be three screenshots of a meme you saved in 2019.",
+        "The Void has been opened. Please remain calm. The Void is also unsure what to do next.",
+        "Scanning encrypted contents... 47 files found. 46 are important. One is named 'final_FINAL_really_final.txt'. Good Luck figuring out which one is which.",
+        "The vault requests a sacrifice. We offered it a USB cable. It accepted said phenomenon.",
+        "Authentication successful. You are officially more trustworthy than the average house cat.",
+        "The encryption is flawless. Your folder organization, however, is a completely different international security incident.",
+        "Opening The Void... please wait. The Void is putting on its shoes. Seems like The Void owns no shoes. The Void is a mysterious entity.",
+        "You have successfully entered the forbidden vault. Please remember to close the door. We are not paying for another haunted filesystem, especially in this economy",
+        "The Void contains many secrets. Most of them appear to be images you forgot you took.",
+        "Vault unlocked. The security system has determined that you are, in fact, you. Impressive work. Very impressive work.",
+        "A mysterious signal has been detected inside the vault. It appears to be coming from a file called 'DO_NOT_DELETE.txt'.Please acknowledge that you have read this message by sending a carrier pigeon to the nearest post office.",
+        "The vault is open. Somewhere, a security engineer just felt a disturbance in the logs.",
+        "Congratulations. You defeated the password prompt. Your reward is... access to your own files. Like what did you expect was going to happen?",
+        "The Void is pleased with your credentials. It has requested snacks as compensation.",
+        "Decrypting contents... please do not stare directly at the terminal. The terminal gets nervous and quite shy.",
+
+    ]
+
+    console.print("[dim]As the vault opens, a mysterious message appears...[/dim]")
+    console.print(
+        "[bold magenta]ACCESS GRANTED![/bold magenta] "
+        "The mainframe is mildly impressed. "
+    )
+    console.print(f"[dim]{random.choice(jokes)}[/dim]")
 
 def _locate_locked_vault(original_vault_name: str, base_path: Path) -> Path | None:
     """
@@ -105,11 +161,22 @@ def _conceal(vault_path: Path, base_path: Path) -> None:
             f"disguised, but hiding failed: {exc}"
         )
 
-@click.group()
+@click.group(invoke_without_command=True)
 @click.version_option(package_name="blackbox-vault")
-def main() -> None:
+@click.option(
+    "--konami",
+    is_flag=True,
+    hidden=True,
+    is_eager=True,
+    help="Trigger the hidden Blackbox easter egg."
+)
+def main(konami: bool) -> None:
     """Blackbox - Hide it.Lock it. Dare them to find it."""
-    pass
+
+    if konami:
+        console.print("[bold magenta] KONAMI PROTOCOL ACCEPTED![/bold magenta]")
+        console.print("[dim]↑ ↑ ↓ ↓ ← → ← → B A[/dim] ")
+        console.print("[bold green]BLACKBOX CHEAT CODE: +30 hacker points.[/bold green]")
 
 @main.command()
 @click.option(
@@ -145,6 +212,8 @@ def status(name: str) -> None:
     """
     base_path = Path(".").resolve()
     void_path = base_path / name
+
+    _fake_mainframe_connection()
     original_vault_name = f"{name}.vault"
 
     locked_path = _locate_locked_vault(original_vault_name, base_path)
@@ -275,6 +344,10 @@ def unlock(folder: str, fast: bool) -> None:
     forget_disguise_entry(original_vault_name, base_path=base_path)
 
     console.print(f"[bold green]Restored:[/bold green] {restored_folder}")
+
+    # A deliberately rare, harmless joke on successful unlock.
+    if random.random() < 0.05:
+        _print_unlock_joke()
 
     
 

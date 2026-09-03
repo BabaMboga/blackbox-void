@@ -381,3 +381,108 @@ def test_full_lifecycle_init_lock_unlock(runner):
         )
         assert unlock_result.exit_code == 0
         assert (Path("The Void") / "diary.txt").read_text() == "dear diary, blackbox works"
+
+def test_konami_flag_triggers_hidden_easter_egg(runner):
+    """
+    The hidden --konami flag should trigger the CLI easter egg.
+    """
+    with runner.isolated_filesystem():
+        result = runner.invoke(main, ["--konami"])
+        assert result.exit_code == 0
+        assert "KONAMI PROTOCOL ACCEPTED!" in result.output
+        assert "BLACKBOX CHEAT CODE: +30 hacker points." in result.output
+
+def test_konami_flag_is_hidden_from_help(runner):
+    """
+    The eeaster-egg flag should not clutter normal CLI help output.
+    """
+    with runner.isolated_filesystem():
+        result = runner.invoke(main, ["--help"])
+
+        assert result.exit_code == 0
+        assert "--konami" not in result.output
+
+def test_unlock_rare_joke_is_shown_when_random_roll_hits(
+    runner,
+    monkeypatch,
+):
+    """A successful unlock gets the joke only when the 5% roll succeeds."""
+    monkeypatch.setattr(
+        "blackbox.cli.random.random",
+        lambda: 0.01,
+    )
+
+    with runner.isolated_filesystem():
+        runner.invoke(main, ["init"])
+        runner.invoke(
+            main,
+            ["lock", "--fast"],
+            input="hunter2\nhunter2\n",
+        )
+
+        result = runner.invoke(
+            main,
+            ["unlock", "--fast"],
+            input="hunter2\n",
+        )
+
+        assert result.exit_code == 0
+        assert "mainframe is mildly impressed" in result.output
+
+
+def test_unlock_rare_joke_is_not_shown_when_random_roll_misses(
+    runner,
+    monkeypatch,
+):
+    """A successful unlock normally remains free of the rare joke."""
+    monkeypatch.setattr(
+        "blackbox.cli.random.random",
+        lambda: 0.50,
+    )
+
+    with runner.isolated_filesystem():
+        runner.invoke(main, ["init"])
+        runner.invoke(
+            main,
+            ["lock", "--fast"],
+            input="hunter2\nhunter2\n",
+        )
+
+        result = runner.invoke(
+            main,
+            ["unlock", "--fast"],
+            input="hunter2\n",
+        )
+
+        assert result.exit_code == 0
+        assert "mainframe is mildly impressed" not in result.output
+
+
+def test_status_runs_fake_mainframe_connection_before_real_action(
+    runner,
+    monkeypatch,
+):
+    """Status should show the fake connection before its real vault check."""
+    events = []
+
+    monkeypatch.setattr(
+        "blackbox.cli._MAINFRAME_DELAY_SECONDS",
+        1.5,
+    )
+
+    monkeypatch.setattr(
+        "blackbox.cli.time.sleep",
+        lambda seconds: events.append(seconds),
+    )
+
+    with runner.isolated_filesystem():
+        result = runner.invoke(main, ["status"])
+
+        assert result.exit_code == 0
+        assert events == [1.5]
+
+        assert result.output.index(
+            "Connecting to mainframe"
+        ) < result.output.index(
+            "hasn't been created yet"
+        )
