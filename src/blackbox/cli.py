@@ -74,11 +74,27 @@ def _print_unlock_joke() -> None:
     This is deliberately not called automatically, but for only a fraction of the time.
     """
     jokes = [
-        "The vault opens, and inside is... a single, lonely sock. It seems to be waiting for its mate.",
+        "The vault opens, and inside is... a single, lonely sock. It seems to be waiting for its mate or the other unsannary activities you do with it.",
         "You unlock the vault, and a tiny voice whispers: 'I knew you'd come back.'",
         "Inside the vault, you find a note that says: 'Congratulations! You've unlocked the secrets of the universe. Just kidding, it's just a vault.'",
-        "The vault creaks open, revealing... a perfectly organized collection of rubber ducks. Quack!",
-        "As you unlock the vault, a holographic cat appears and says: 'Meow. You may proceed.'",
+        "The vault creaks open, revealing... a perfectly organized collection of rubber ducks. Quack! Quack! Quack!",
+        "As you unlock the vault, a holographic cat appears and says: 'Meow. You may proceed young padwan.'",
+        "Vault unlocked. Unfortunately, the treasure appears to be three screenshots of a meme you saved in 2019.",
+        "The Void has been opened. Please remain calm. The Void is also unsure what to do next.",
+        "Scanning encrypted contents... 47 files found. 46 are important. One is named 'final_FINAL_really_final.txt'. Good Luck figuring out which one is which.",
+        "The vault requests a sacrifice. We offered it a USB cable. It accepted said phenomenon.",
+        "Authentication successful. You are officially more trustworthy than the average house cat.",
+        "The encryption is flawless. Your folder organization, however, is a completely different international security incident.",
+        "Opening The Void... please wait. The Void is putting on its shoes. Seems like The Void owns no shoes. The Void is a mysterious entity.",
+        "You have successfully entered the forbidden vault. Please remember to close the door. We are not paying for another haunted filesystem, especially in this economy",
+        "The Void contains many secrets. Most of them appear to be images you forgot you took.",
+        "Vault unlocked. The security system has determined that you are, in fact, you. Impressive work. Very impressive work.",
+        "A mysterious signal has been detected inside the vault. It appears to be coming from a file called 'DO_NOT_DELETE.txt'.Please acknowledge that you have read this message by sending a carrier pigeon to the nearest post office.",
+        "The vault is open. Somewhere, a security engineer just felt a disturbance in the logs.",
+        "Congratulations. You defeated the password prompt. Your reward is... access to your own files. Like what did you expect was going to happen?",
+        "The Void is pleased with your credentials. It has requested snacks as compensation.",
+        "Decrypting contents... please do not stare directly at the terminal. The terminal gets nervous and quite shy.",
+
     ]
 
     console.print("[dim]As the vault opens, a mysterious message appears...[/dim]")
