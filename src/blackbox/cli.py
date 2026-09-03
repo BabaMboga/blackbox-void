@@ -145,11 +145,22 @@ def _conceal(vault_path: Path, base_path: Path) -> None:
             f"disguised, but hiding failed: {exc}"
         )
 
-@click.group()
+@click.group(invoke_without_command=True)
 @click.version_option(package_name="blackbox-vault")
-def main() -> None:
+@click.option(
+    "--konami",
+    is_flag=True,
+    hidden=True,
+    is_eager=True,
+    help="Trigger the hidden Blackbox easter egg."
+)
+def main(konami: bool) -> None:
     """Blackbox - Hide it.Lock it. Dare them to find it."""
-    pass
+
+    if konami:
+        console.print("[bold magenta] KONAMI PROTOCOL ACCEPTED![/bold magenta]")
+        console.print("[dim]↑ ↑ ↓ ↓ ← → ← → B A[/dim] ")
+        console.print("[bold green]BLACKBOX CHEAT CODE: +30 hacker points.[/bold green]")
 
 @main.command()
 @click.option(
