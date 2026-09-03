@@ -29,7 +29,9 @@ reported — a failed attempt should never leave a vault sitting around in plain
 
 from __future__ import annotations
 
+import random
 import sys
+import time
 from pathlib import Path
 
 import click
@@ -52,6 +54,39 @@ from blackbox.vault import lock as vault_lock
 from blackbox.vault import unlock as vault_unlock
 
 console = Console()
+
+# purely cosmetic easter-egg timing.This deliberately has no relationship to the vault's
+# actual security or cryptographic operations.
+_MAINFRAME_DELAY_SECONDS = 1.5 + random.random() * 2.0
+
+def fake_mainframe_connection() -> None:
+    """
+    A purely cosmetic easter-egg: Preteneds to connect to a mainframe before a mundane CLI action.
+    """
+    console.print("[dim]Connecting to mainframe...[/dim]")
+    time.sleep(_MAINFRAME_DELAY_SECONDS)
+    console.print(" [green]Connected.[/green]")
+    console.print("[dim]Mainframe reports: everything is surprisingly and astonishingly normal.[/dim]")
+
+def _print_unlock_joke() -> None:
+    """
+    A purely cosmetic easter-egg: prints the rare-successful-unlock joke easter-egg.
+    This is deliberately not called automatically, but for only a fraction of the time.
+    """
+    jokes = [
+        "The vault opens, and inside is... a single, lonely sock. It seems to be waiting for its mate.",
+        "You unlock the vault, and a tiny voice whispers: 'I knew you'd come back.'",
+        "Inside the vault, you find a note that says: 'Congratulations! You've unlocked the secrets of the universe. Just kidding, it's just a vault.'",
+        "The vault creaks open, revealing... a perfectly organized collection of rubber ducks. Quack!",
+        "As you unlock the vault, a holographic cat appears and says: 'Meow. You may proceed.'",
+    ]
+
+    console.print("[dim]As the vault opens, a mysterious message appears...[/dim]")
+    console.print(
+        "[bold magenta]ACCESS GRANTED![/bold magenta] "
+        "The mainframe is mildly impressed. "
+    )
+    console.print(f"[dim]{random.choice(jokes)}[/dim]")
 
 def _locate_locked_vault(original_vault_name: str, base_path: Path) -> Path | None:
     """
