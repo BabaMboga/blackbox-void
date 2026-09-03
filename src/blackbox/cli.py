@@ -59,7 +59,7 @@ console = Console()
 # actual security or cryptographic operations.
 _MAINFRAME_DELAY_SECONDS = 1.5 + random.random() * 2.0
 
-def fake_mainframe_connection() -> None:
+def _fake_mainframe_connection() -> None:
     """
     A purely cosmetic easter-egg: Preteneds to connect to a mainframe before a mundane CLI action.
     """
@@ -196,6 +196,8 @@ def status(name: str) -> None:
     """
     base_path = Path(".").resolve()
     void_path = base_path / name
+
+    _fake_mainframe_connection()
     original_vault_name = f"{name}.vault"
 
     locked_path = _locate_locked_vault(original_vault_name, base_path)
