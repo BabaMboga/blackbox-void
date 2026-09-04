@@ -2,14 +2,16 @@
 blackbox.cli - the blackbox command-line interface.
 
 Ties together everything built so far: config.init_void() for first-run setup, vault.lock()/unlock()
-for the actual encryption, ui.matrix_rain_during() for the loading animation, and 
-easter_eggs.print_access_attempt_flavor() for the trivia/fake-message flair. Every cinnabd's output
-is styled through a single shared rich Console instance.
+for the actual encryption,hide.hide_path()/unhide_path() for the OS-level concealment, 
+config.disguise_vault()/forget_disguise_entry() for boring-name disguising, ui.matrix_rain_during() 
+for the loading animation, and easter_eggs.print_access_attempt_flavor() for the trivia/fake-message
+flair. Every cinnabd's output is styled through a single shared rich Console instance.
 
 Concealment ordering (resolved cross-platform question):
 
     LOCK: vault.lock() -> disguise_vault() -> hide_path()
-    UNLOCK: locate on disk -> unhide_path() -> undisguise_vault() -> vault.unlock()
+    UNLOCK: locate on disk -> unhide_path() -> undisguise_vault() -> vault.unlock() directly on the 
+        still disguised name (not the plain original name) -> forget_disguise_entry()
 
 Locating the file on unlock is the tricky part, since hiding behaves differently per OS: on macOS/Linux, 
 hide_path() renames the disguised file to a dotfile; on Windows, it sets attributes in place without 
@@ -18,13 +20,13 @@ name OR its dotfile-prefixed name, depending on which OS locked it. _locate_lock
 candidate paths and uses whichever actually exists.
 
 vault.unlock() is deliberately called on the disguised name, not the plain original name — it reads the 
-real folder name from the encrypted header, not from the filename, so there's no need to expose the recognizable 
+real folder name from the encrypted header, not from the filename, so there's no need to expose the recognisable 
 plain name during an attempt at all. This also means vault.py's own failed-attempt cooldown sidecar (step 10) 
 inherits the boring disguised name rather than leaking the vault's real identity.
  
 A wrong password must never strip a vault's concealment. If vault.unlock() fails after the file has 
-already been revealed and undisguised, it gets re-disguised and re-hidden before the error is
-reported — a failed attempt should never leave a vault sitting around in plain, visible form.
+already been revealed and undisguised, the vault file (and its cooldown sidecar) re-disguised and re-hidden before
+the error is reported — a failed attempt should never leave a vault sitting around in plain, visible form.
 """
 
 from __future__ import annotations
