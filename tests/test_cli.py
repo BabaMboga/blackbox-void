@@ -598,7 +598,7 @@ def test_rare_joke_appears_when_random_forced_below_threshold(runner, monkeypatc
 
         assert any(
             _normalised(joke) in _normalised(result.output)
-            for joke in cli_module.j
+            for joke in cli_module.jokes
         )
 
 
@@ -618,8 +618,8 @@ def test_rare_joke_never_appears_when_random_forced_above_threshold(runner, monk
         result = runner.invoke(main, ["unlock", "--fast"], input="pass2\n")
 
         assert not any(
-            _normalized(joke) in _normalized(result.output)
-            for joke in cli_module.RARE_UNLOCK_JOKES
+            _normalised(joke) in _normalised(result.output)
+            for joke in cli_module.jokes
         )
 
 
@@ -639,6 +639,6 @@ def test_rare_joke_never_appears_on_a_failed_unlock(runner, monkeypatch):
         result = runner.invoke(main, ["unlock", "--fast"], input="wrongpassword\n")
 
         assert not any(
-            _normalized(joke) in _normalized(result.output)
-            for joke in cli_module.RARE_UNLOCK_JOKES
+            _normalised(joke) in _normalised(result.output)
+            for joke in cli_module.jokes
         )
