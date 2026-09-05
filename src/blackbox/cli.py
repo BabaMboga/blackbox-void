@@ -378,7 +378,7 @@ def unlock(folder: str, fast: bool) -> None:
 
     # A deliberately rare, harmless joke on successful unlock. Pure flavor.
     if random.random() < RARE_JOKE_PROBABILITY:
-        _print_unlock_joke()
+        _print_unlock_joke(jokes)
 
     
 
