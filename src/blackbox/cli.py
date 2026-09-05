@@ -61,7 +61,7 @@ console = Console()
 # purely cosmetic easter-egg timing and flavor that never affects real behavior.This deliberately 
 # has no relationship to the vault's actual security or cryptographic operations.
 
-RARE_JOKE_PROBABILITY = 0.05
+RARE_JOKE_PROBABILITY = 0.25
 _MAINFRAME_DELAY_SECONDS = 1.5 + random.random() * 2.0
 
 KONAMI_MESSAGE = (
