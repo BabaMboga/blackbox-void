@@ -57,9 +57,19 @@ from blackbox.vault import unlock as vault_unlock
 
 console = Console()
 
-# purely cosmetic easter-egg timing.This deliberately has no relationship to the vault's
-# actual security or cryptographic operations.
+# --- Hidden flourishes -------
+# purely cosmetic easter-egg timing and flavor that never affects real behavior.This deliberately 
+# has no relationship to the vault's actual security or cryptographic operations.
+
+RARE_JOKE_PROBABILITY = 0.05
 _MAINFRAME_DELAY_SECONDS = 1.5 + random.random() * 2.0
+
+KONAMI_MESSAGE = (
+    "\u2191 \u2192 \u2193 \u2193 \u2190 \u2192 \u2190 \u2192 B A\n\n"
+    "Konami code accepted. Unfortunately, this grants you absolutely"
+    "nothing \u2014 in Blackbox. Your dedication has been noted, however,"
+    "you have earned a few extra hacker points for style."
+)
 
 def _fake_mainframe_connection() -> None:
     """
@@ -104,7 +114,7 @@ def _print_unlock_joke() -> None:
         "[bold magenta]ACCESS GRANTED![/bold magenta] "
         "The mainframe is mildly impressed. "
     )
-    console.print(f"[dim]{random.choice(jokes)}[/dim]")
+    console.print(f"[dim italic]{random.choice(jokes)}[/dim italic]")
 
 def _locate_locked_vault(original_vault_name: str, base_path: Path) -> Path | None:
     """
@@ -172,13 +182,20 @@ def _conceal(vault_path: Path, base_path: Path) -> None:
     is_eager=True,
     help="Trigger the hidden Blackbox easter egg."
 )
-def main(konami: bool) -> None:
+@click.pass_context
+def main(ctx: click.Context, konami: bool) -> None:
     """Blackbox - Hide it.Lock it. Dare them to find it."""
 
     if konami:
+        console.print(f"[bold magenta]{KONAMI_MESSAGE}[/bold magenta]")
         console.print("[bold magenta] KONAMI PROTOCOL ACCEPTED![/bold magenta]")
         console.print("[dim]↑ ↑ ↓ ↓ ← → ← → B A[/dim] ")
         console.print("[bold green]BLACKBOX CHEAT CODE: +30 hacker points.[/bold green]")
+        ctx.exit()
+
+    if ctx.invoked_subcommand is None:
+        console.print("[bold red]Error:[/bold red] No command specified. Run [bold]blackbox --help[/bold] for usage information.")
+        click.echo(ctx.get_help())
 
 @main.command()
 @click.option(
@@ -211,7 +228,16 @@ def init(name: str) -> None:
 def status(name: str) -> None:
     """
     Show whether a vault is currently locked or unlocked.
+
+    Opens with a deliberately fake, theatrical "connecting to mainframe" message, purely for flavor before
+    doing the actual, entirely mundane work of checking whether a couple of files exist. Pure flavor - there
+    is no actual mainfraime, this is a local filesystem check that takes a few milliseconds in reality.
     """
+
+    console.print("[dim]Connecting to mainframe...[/dim]")
+    time.sleep(_MAINFRAME_DELAY_SECONDS)
+    console.print("[green]Connected.[/green]")
+
     base_path = Path(".").resolve()
     void_path = base_path / name
 
@@ -312,8 +338,9 @@ def unlock(folder: str, fast: bool) -> None:
     except VaultError as exc:
         # Wrong password or corruption. vault.unlock() has NOT deleted 
         # the file in this case (it only deletes on success), so the 
-        # disguised file is still sitting there; its disguised name never
-        # changed) so a failed attempt never leaves it exposed.
+        # disguised file is still sitting there, revealed/unhidden re-hide it (
+        # no need to re-disguise; its disguised name never changed) so 
+        # a failed attempt never leaves it exposed.
 
         if revealed_path is not None and revealed_path.exists():
             try:
@@ -347,8 +374,8 @@ def unlock(folder: str, fast: bool) -> None:
 
     console.print(f"[bold green]Restored:[/bold green] {restored_folder}")
 
-    # A deliberately rare, harmless joke on successful unlock.
-    if random.random() < 0.05:
+    # A deliberately rare, harmless joke on successful unlock. Pure flavor.
+    if random.random() < RARE_JOKE_PROBABILITY:
         _print_unlock_joke()
 
     
