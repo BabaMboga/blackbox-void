@@ -64,28 +64,7 @@ console = Console()
 RARE_JOKE_PROBABILITY = 0.25
 _MAINFRAME_DELAY_SECONDS = 1.5 + random.random() * 2.0
 
-KONAMI_MESSAGE = (
-    "\u2191 \u2192 \u2193 \u2193 \u2190 \u2192 \u2190 \u2192 B A\n\n"
-    "Konami code accepted. Unfortunately, this grants you absolutely"
-    "nothing \u2014 in Blackbox. Your dedication has been noted, however,"
-    "you have earned a few extra hacker points for style."
-)
-
-def _fake_mainframe_connection() -> None:
-    """
-    A purely cosmetic easter-egg: Preteneds to connect to a mainframe before a mundane CLI action.
-    """
-    console.print("[dim]Connecting to mainframe...[/dim]")
-    time.sleep(_MAINFRAME_DELAY_SECONDS)
-    console.print(" [green]Connected.[/green]")
-    console.print("[dim]Mainframe reports: everything is surprisingly and astonishingly normal.[/dim]")
-
-def _print_unlock_joke() -> None:
-    """
-    A purely cosmetic easter-egg: prints the rare-successful-unlock joke easter-egg.
-    This is deliberately not called automatically, but for only a fraction of the time.
-    """
-    jokes = [
+jokes = [
         "The vault opens, and inside is... a single, lonely sock. It seems to be waiting for its mate or the other unsannary activities you do with it.",
         "You unlock the vault, and a tiny voice whispers: 'I knew you'd come back.'",
         "Inside the vault, you find a note that says: 'Congratulations! You've unlocked the secrets of the universe. Just kidding, it's just a vault.'",
@@ -107,7 +86,30 @@ def _print_unlock_joke() -> None:
         "The Void is pleased with your credentials. It has requested snacks as compensation.",
         "Decrypting contents... please do not stare directly at the terminal. The terminal gets nervous and quite shy.",
 
-    ]
+]
+
+KONAMI_MESSAGE = (
+    "\u2191 \u2192 \u2193 \u2193 \u2190 \u2192 \u2190 \u2192 B A\n\n"
+    "Konami code accepted. Unfortunately, this grants you absolutely"
+    "nothing \u2014 in Blackbox. Your dedication has been noted, however,"
+    "you have earned a few extra hacker points for style."
+)
+
+def _fake_mainframe_connection() -> None:
+    """
+    A purely cosmetic easter-egg: Preteneds to connect to a mainframe before a mundane CLI action.
+    """
+    console.print("[dim]Connecting to mainframe...[/dim]")
+    time.sleep(_MAINFRAME_DELAY_SECONDS)
+    console.print(" [green]Connected.[/green]")
+    console.print("[dim]Mainframe reports: everything is surprisingly and astonishingly normal.[/dim]")
+
+def _print_unlock_joke(jokes) -> None:
+    """
+    A purely cosmetic easter-egg: prints the rare-successful-unlock joke easter-egg.
+    This is deliberately not called automatically, but for only a fraction of the time.
+    """
+    
 
     console.print("[dim]As the vault opens, a mysterious message appears...[/dim]")
     console.print(
