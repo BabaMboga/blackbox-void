@@ -9,12 +9,15 @@ isolated_filesystem() context manager, since these CLI commands work
 off cwd-relative paths.
 """
 
+import random
 from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
 
+import blackbox.cli as cli_module
 from blackbox.cli import main
+
 
 
 @pytest.fixture
@@ -22,12 +25,37 @@ def runner():
     """A fresh CliRunner for each test."""
     return CliRunner()
 
+@pytest.fixture(autouse=True)
+def fast_mainframe_delay(monkeypatch):
+    """
+    Shrink the fake "connecting to mainframe" delay to near-zero for every
+    test in this file. Without this, every test calling `status` pays the 
+    ~1.2s theatrical delay,which is fine for a human watching the terminal 
+    but turns the test suite from milliseconds into tens of seconds. Applied
+    automatically via autouse=True - no test needs to opt in.
+    """
+    monkeypatch.setattr(cli_module, "_MAINFRAME_DELAY_SECONDS", 0.0)
+
 
 def _visible_entries() -> list[str]:
     """List filenames in the current directory that are NOT
     dotfile-hidden — i.e. what a plain `ls` would show.
     """
     return [p.name for p in Path(".").iterdir() if not p.name.startswith(".")]
+
+def _normalised(text: str) -> str:
+    """
+    Collapse all whitespace (including newlines inserted by rich's word-wrapping
+    at the console width) into single spaces.
+
+    Needed because rich.Console wraps long lines to fit the terminal width, which
+    can insert a newline in the middle of a longer piece of flavor text. An exact
+    substring check against the original unwrapped string would then fail even 
+    though the text printed correctly - this normalizes both sides so wrapping can
+    never break the comparison.
+    """
+
+    return " ".join(text.split())
 
 
 # --- status: before anything exists --------------------------------------
@@ -382,6 +410,8 @@ def test_full_lifecycle_init_lock_unlock(runner):
         assert unlock_result.exit_code == 0
         assert (Path("The Void") / "diary.txt").read_text() == "dear diary, blackbox works"
 
+# ---- Hidden --konami flag easter egg ---------------
+
 def test_konami_flag_triggers_hidden_easter_egg(runner):
     """
     The hidden --konami flag should trigger the CLI easter egg.
@@ -401,6 +431,27 @@ def test_konami_flag_is_hidden_from_help(runner):
 
         assert result.exit_code == 0
         assert "--konami" not in result.output
+
+def test_konami_flag_does_not_run_any_real_subcommand(runner):
+    """
+    Passing --konami should short-circuit before any real subcommand logic runs
+    - it must not accidentally create The Void, check status, or touch the filesystem
+    at all.
+    """
+    with runner.isolated_filesystem():
+        runner.invoke(main, ["--konami"])
+        assert not Path("The Void").exists()
+
+def test_no_args_without_konami_shows_normal_help(runner):
+    """
+    Running blackbox with no arguments and no --konami flag should behave normally -
+    showing the regular help text, not triggering the easter egg or crashing.
+    """
+    with runner.isolated_filesystem():
+        result = runner.invoke(main, [])
+        assert result.exit_code == 0
+        assert "Usage:" in result.output
+        assert "KONAMI PROTOCOL ACCEPTED!" not in result.output
 
 def test_unlock_rare_joke_is_shown_when_random_roll_hits(
     runner,
@@ -485,4 +536,109 @@ def test_status_runs_fake_mainframe_connection_before_real_action(
             "Connecting to mainframe"
         ) < result.output.index(
             "hasn't been created yet"
+        )
+
+# --- Fake "connecting to mainframe" delay on status -----------------------
+
+def test_status_shows_mainframe_flavor_text(runner):
+    """status should print the fake "connecting to mainframe" line
+    before its real, mundane output — pure theatrical flavor.
+    """
+    with runner.isolated_filesystem():
+        result = runner.invoke(main, ["status"])
+        assert "Connecting to mainframe" in result.output
+
+
+def test_status_mainframe_delay_is_actually_configurable(runner, monkeypatch):
+    """The delay duration should be a real, controllable value — not
+    hardcoded inline where it couldn't be adjusted or tested. Confirmed
+    by setting it to a distinctive nonzero value and timing the call.
+    """
+    import time
+
+    monkeypatch.setattr(cli_module, "MAINFRAME_DELAY_SECONDS", 0.15)
+
+    with runner.isolated_filesystem():
+        start = time.monotonic()
+        runner.invoke(main, ["status"])
+        elapsed = time.monotonic() - start
+
+        assert elapsed >= 0.15
+
+
+def test_status_still_reports_correct_state_after_the_delay(runner):
+    """The theatrical delay is purely cosmetic — it must never change
+    or delay-corrupt the actual, real status determination that
+    follows it.
+    """
+    with runner.isolated_filesystem():
+        runner.invoke(main, ["init"])
+        result = runner.invoke(main, ["status"])
+        assert "Unlocked" in result.output
+
+
+# --- Rare joke on successful unlock ----------------------------------
+
+def test_rare_joke_appears_when_random_forced_below_threshold(runner, monkeypatch):
+    """Forcing random.random() to always return 0.0 (guaranteed below
+    any positive probability threshold) should make the joke fire on
+    every successful unlock — confirms the branch is genuinely
+    reachable and wired correctly. Patches random.random() directly,
+    the same deterministic technique used in test_easter_eggs.py and
+    test_ui.py, rather than relying on RARE_JOKE_PROBABILITY alone.
+    """
+    monkeypatch.setattr(random, "random", lambda: 0.0)
+
+    with runner.isolated_filesystem():
+        runner.invoke(main, ["init"])
+        (Path("The Void") / "f.txt").write_text("x")
+        runner.invoke(main, ["lock", "--fast"], input="pass1\npass1\n")
+
+        result = runner.invoke(main, ["unlock", "--fast"], input="pass1\n")
+
+        assert any(
+            _normalised(joke) in _normalised(result.output)
+            for joke in cli_module.jokes
+        )
+
+
+def test_rare_joke_never_appears_when_random_forced_above_threshold(runner, monkeypatch):
+    """Forcing random.random() to always return a value above the
+    default RARE_JOKE_PROBABILITY (0.05) should mean the joke never
+    fires — confirms the "rare" branch doesn't leak into every normal
+    unlock by mistake.
+    """
+    monkeypatch.setattr(random, "random", lambda: 0.99)
+
+    with runner.isolated_filesystem():
+        runner.invoke(main, ["init"])
+        (Path("The Void") / "f.txt").write_text("x")
+        runner.invoke(main, ["lock", "--fast"], input="pass2\npass2\n")
+
+        result = runner.invoke(main, ["unlock", "--fast"], input="pass2\n")
+
+        assert not any(
+            _normalised(joke) in _normalised(result.output)
+            for joke in cli_module.jokes
+        )
+
+
+def test_rare_joke_never_appears_on_a_failed_unlock(runner, monkeypatch):
+    """The joke celebrates a *successful* unlock specifically — it
+    must never appear after a wrong password, even with random.random()
+    forced to always return 0.0, since the success path (where the
+    joke lives) never executes on failure.
+    """
+    monkeypatch.setattr(random, "random", lambda: 0.0)
+
+    with runner.isolated_filesystem():
+        runner.invoke(main, ["init"])
+        (Path("The Void") / "f.txt").write_text("x")
+        runner.invoke(main, ["lock", "--fast"], input="pass3\npass3\n")
+
+        result = runner.invoke(main, ["unlock", "--fast"], input="wrongpassword\n")
+
+        assert not any(
+            _normalised(joke) in _normalised(result.output)
+            for joke in cli_module.jokes
         )
