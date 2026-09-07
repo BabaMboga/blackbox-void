@@ -21,6 +21,32 @@ pytest                        # confirm everything's green before you start
 (`pytest`, `pytest-cov`, `pyinstaller`). If you only want to run blackbox
 rather than develop it, `pip install -e .` alone is enough.
 
+## How contributions actually get merged
+
+`main` is a protected branch - nobody, including the maintainer, can push to it directly. Every change goes through a pull request. Concretely:
+
+1. **Fork the repo** to your own GitHub account (use the "Fork" button GitHub - you won't have push access to the main repo directly unless ypu've been added as a colaborator).
+2. **Clone your fork**, not the main repo:
+
+   ```bash
+   git clone https://github.com/<your-username>/blackbox-void.git
+   ```
+
+3. **Create a feature branch** off `main` (see the branch naming convention below).
+4. **Commit your changes** using the commit conventin below, and push to *your fork*:
+
+   ```bash
+   git push origin feature/your-branch-name
+   ```
+
+5. **Open a pull request** from your fork's branch against this repo's `main` branch with a clear description of what changed, why, and how it was verified. GitHub shows a "Compare & pull request" button automatically after you push a new branch.
+6. **CI runs automatically** on your PR - the full test matrix (Ubuntu, macOS, Windows x a few Python versions). All checks must pass before the PR can be merged; this is enforced automatically, not just a suggestion.
+7. **At least one approving review** is required before merging - also enforced automatically. If you push new commits after a review, the approval is dismissed and needs a fresh look.
+8. **Once approved and green, it gets squash-merged** - your PR becomes a single clean commit on `main`, using your PR title as the commit message. This is why a clear, well-formatted PR title matters (see below) -it's not just documentation, it becomes real project history.
+9. Your branch is deleted automatically after merge. You can delete your fork whenever, or keep it around for future contributions.
+
+If you're a collaborator with write access to the main repo directly (not a fork), the same flow applies - just skip the fork step and push your branch straight to this repo.
+
 ## Branching
 
 Branch names follow `<type>/<short-description>`, matching the commit
