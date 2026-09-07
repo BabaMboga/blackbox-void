@@ -59,7 +59,7 @@ def test_unicode_folder_name_round_trips(tmp_path):
     restored = unlock(str(vault_path), password="hunter2")
     
     assert restored.name == "Café Secrets 日本語"
-    assert (restored / "my important file.txt").read_text() == "unicode folder name"
+    assert (restored / "note.txt").read_text() == "unicode folder name"
 
 def test_unicode_file_content_and_name_round_trip(tmp_path):
     """
