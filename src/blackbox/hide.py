@@ -133,7 +133,7 @@ def hide_path(path: str | Path) -> Path:
 
 def _unhide_windows(path: Path) -> Path:
     """
-    Clear the hidden + syste, attributes via the Win32 API, restoring the item to 
+    Clear the hidden + system, attributes via the Win32 API, restoring the item to 
     FILE_ATTRIBUTE_NORMAL
     """
 

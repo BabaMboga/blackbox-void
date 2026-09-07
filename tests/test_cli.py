@@ -17,6 +17,26 @@ from click.testing import CliRunner
 
 import blackbox.cli as cli_module
 from blackbox.cli import main
+import platform
+
+def _is_hidden(path: Path) -> bool:
+    """
+    Cross-platform hidden check: Windows uses the file attribute bit, 
+    macOS/Linux use the dotfile convention. Path.iterdir() alone only
+    respects the Unix convention, which silently under-detects hidden
+    files on Windows. This helper checks both.
+    """
+    if platform.system() == "Windows":
+        FILE_ATTRIBUTE_HIDDEN = 0x2
+        return bool(path.stat().st_file_attributes & FILE_ATTRIBUTE_HIDDEN)
+    return path.name.startswith(".")
+
+def _visible_entries() -> list[str]:
+    """
+    List filenames in the current directory that are NOT hidden, using the
+    correct hiding convention for the current OS.
+    """
+    return [p.name for p in Path(".").iterdir() if not _is_hidden(p)]
 
 
 
@@ -35,13 +55,6 @@ def fast_mainframe_delay(monkeypatch):
     automatically via autouse=True - no test needs to opt in.
     """
     monkeypatch.setattr(cli_module, "_MAINFRAME_DELAY_SECONDS", 0.0)
-
-
-def _visible_entries() -> list[str]:
-    """List filenames in the current directory that are NOT
-    dotfile-hidden — i.e. what a plain `ls` would show.
-    """
-    return [p.name for p in Path(".").iterdir() if not p.name.startswith(".")]
 
 def _normalised(text: str) -> str:
     """
@@ -157,7 +170,7 @@ def test_lock_hides_the_disguised_vault_file(runner):
 
         hidden_entries = [
             p.name for p in Path(".").iterdir()
-            if p.name.startswith(".") and p.name != ".blackbox_disguise_registry.json"
+            if _is_hidden(p) and p.name != ".blackbox_disguise_registry.json"
         ]
         assert len(hidden_entries) == 1
 
