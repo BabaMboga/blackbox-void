@@ -1,5 +1,7 @@
 # blackbox
 
+[![CI](https://github.com/BabaMboga/blackbox-void/actions/workflows/ci.yml/badge.svg)](https://github.com/BabaMboga/blackbox-void/actions/workflows/ci.yml)
+
 **Encrypt it. Disguise it. Hide it. Dare them to find it.**
 
 blackbox is a cross-platform, open-source command-line vault. Point it at a
