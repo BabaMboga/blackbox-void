@@ -232,3 +232,40 @@ def test_macos_folder_name_with_colon_round_trips(tmp_path):
 
     assert (restored / "file.txt").read_text() == "colon in folder name test" if (restored / "file.txt").exists() else True  # No file was created, but folder should exist
 
+
+# ---- Passsword edge cases (not path-related, but round-trip adjacent) ----
+
+def test_unicode_password_round_trip(tmp_path):
+    """
+    Passwords aren't limited to ASCII - a password using non-Latin characters should derive
+    a consistent key and roound-trip correctly, since Argon2id operates on UTF-8 encoded bytes. 
+    """
+
+    folder = tmp_path / "vault_test"
+    folder.mkdir()
+    (folder / "file.txt").write_text("unicode password test")
+
+    password = "パスワード123!€"
+
+    vault_path = lock(str(folder), password=password)
+    restored = unlock(str(vault_path), password=password)
+
+    assert (restored / "file.txt").read_text() == "unicode password test"
+
+def test_very_long_password_round_trip(tmp_path):
+    """
+    A long passphrase (as security guidance often recommends) should work exactly as well as 
+    a short one - no hidden length limit should silently truncate it.
+    """
+
+    folder = tmp_path / "vault_test"
+    folder.mkdir()
+    (folder / "file.txt").write_text("long password test")
+
+    password = "correct horse battery staple" * 20 # a genuinely long passphrase
+
+    vault_path = lock(str(folder), password=password)
+    restored = unlock(str(vault_path), password=password)
+
+    assert (restored / "file.txt").read_text() == "long password test"
+    
