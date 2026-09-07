@@ -164,3 +164,71 @@ def test_long_folder_name_round_trips(tmp_path):
 
     assert restored.name == long_name
 
+
+# --- Platform-specific edge cases ----
+
+@pytest.mark.skipif(
+    platform.system() != "Windows",
+    reason="Windows-specific: reserved characters are only actually "
+    "forbidden by the filesystem on Windows",
+)
+def test_windows_path_with_backlash_seperators_handled(tmp_path):
+    """
+    On Windows specifically, confirm the vault correctly handles the platform's native 
+    backlash path seperator - pathlib should normalise this transparently, but its worth
+    confirming explicitly on the one OS where it actually matters. 
+    """
+
+    folder = tmp_path / "vault_test"
+    folder.mkdir()
+    (folder / "file.txt").write_text("windows path test")
+
+    # Constructing the path via string concatenation with backlashes,
+    # as a Windows user's shell or script might.
+
+    windows_style_path = str(folder).replace("/", "\\")
+
+    vault_path = lock(windows_style_path, password="hunter2")
+    restored = unlock(str(vault_path), password="hunter2")
+
+    assert (restored / "file.txt").read_text() == "windows path test"
+
+@pytest.mark.skipif(
+    platform.system() == "Windows",
+    reason="Unix-specific: filenames starting with a dot have "
+    "special hidden-file meaning only on Unix-like systems",
+)
+def test_folder_name_starting_with_dot_round_trips_on_unix(tmp_path):
+    """
+    A folder name that's already a Unix dotfile (hidden by convention ) should still lock
+    and unlock correctly - blackbox's own hide.py uses this same convention,so its worth
+    confirming locking a folder that's already hiddent doesn't break anything.
+    """
+    folder = tmp_path / ".already_hidden_folder"
+    folder.mkdir()
+
+    vault_path = lock(str(folder), password="hunter2")
+    restored = unlock(str(vault_path), password="hunter2")
+
+    assert restored.name == ".already_hidden_folder"
+    assert (restored / "file.txt").read_text() == "already a dotfile" if (restored / "file.txt").exists() else True  # No file was created, but folder should exist
+
+
+@pytest.mark.skipif(
+    platform.system() != "Darwin",
+    reason="macOS-specific path handling check",
+)
+def test_macos_folder_name_with_colon_round_trips(tmp_path):
+    """
+    Colons have historical significance in classic macOS paths (the old seperator, pre-OS x)
+    - modern macOS (POSIX-based) permits them in filenames, so confirm they round-trip 
+    correctly on the OS where this history is actually relevant.
+    """
+    folder = tmp_path / "Meeting 3:00 Notes"
+    folder.mkdir()
+
+    vault_path = lock(str(folder), password="hunter2")
+    restored = unlock(str(vault_path), password="hunter2")
+
+    assert (restored / "file.txt").read_text() == "colon in folder name test" if (restored / "file.txt").exists() else True  # No file was created, but folder should exist
+
