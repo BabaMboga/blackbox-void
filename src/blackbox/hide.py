@@ -137,7 +137,11 @@ def _unhide_windows(path: Path) -> Path:
     FILE_ATTRIBUTE_NORMAL
     """
 
-    success = ctypes.windll.kernel32.SetFileAttrbutesW(str(path), FILE_ATTRIBUTE_NORMAL)
+    try:
+        success = ctypes.windll.kernel32.SetFileAttributesW(str(path), FILE_ATTRIBUTE_NORMAL)
+    except AttributeError as exc:
+        raise HideError(f"Windows API call failed unexpectedly: {exc}") from exc
+    
     if not success:
         error_code = ctypes.windll.kernel32.GetLastError()
         raise HideError(
