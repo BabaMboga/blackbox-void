@@ -62,7 +62,7 @@ console = Console()
 # has no relationship to the vault's actual security or cryptographic operations.
 
 RARE_JOKE_PROBABILITY = 0.25
-_MAINFRAME_DELAY_SECONDS = 1.5 + random.random() * 2.0
+MAINFRAME_DELAY_SECONDS = 1.5 + random.random() * 2.0
 
 jokes = [
         "The vault opens, and inside is... a single, lonely sock. It seems to be waiting for its mate or the other unsannary activities you do with it.",
@@ -236,9 +236,9 @@ def status(name: str) -> None:
     is no actual mainfraime, this is a local filesystem check that takes a few milliseconds in reality.
     """
 
-    console.print("[dim]Connecting to mainframe...[/dim]")
-    time.sleep(_MAINFRAME_DELAY_SECONDS)
-    console.print("[green]Connected.[/green]")
+    # console.print("[dim]Connecting to mainframe...[/dim]")
+    # time.sleep(MAINFRAME_DELAY_SECONDS)
+    # console.print("[green]Connected.[/green]")
 
     base_path = Path(".").resolve()
     void_path = base_path / name
