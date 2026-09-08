@@ -236,9 +236,9 @@ def status(name: str) -> None:
     is no actual mainfraime, this is a local filesystem check that takes a few milliseconds in reality.
     """
 
-    console.print("[dim]Connecting to mainframe...[/dim]")
-    time.sleep(_MAINFRAME_DELAY_SECONDS)
-    console.print("[green]Connected.[/green]")
+    # console.print("[dim]Connecting to mainframe...[/dim]")
+    # time.sleep(MAINFRAME_DELAY_SECONDS)
+    # console.print("[green]Connected.[/green]")
 
     base_path = Path(".").resolve()
     void_path = base_path / name

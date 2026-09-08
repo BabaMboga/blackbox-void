@@ -569,7 +569,7 @@ def test_status_mainframe_delay_is_actually_configurable(runner, monkeypatch):
     """
     import time
 
-    monkeypatch.setattr(cli_module, "MAINFRAME_DELAY_SECONDS", 0.15)
+    monkeypatch.setattr(cli_module, "_MAINFRAME_DELAY_SECONDS", 0.15)
 
     with runner.isolated_filesystem():
         start = time.monotonic()
