@@ -406,7 +406,14 @@ def unlock(
 
     buffer = io.BytesIO(archive_bytes)
     with tarfile.open(fileobj=buffer, mode="r") as tar:
-        tar.extractall(path=output_dir, filter="data")
+        if hasattr(tarfile, "data_filter"):
+            tar.extractall(path=output_dir, filter="data")
+        else:
+            # Python < 3.10.12 / 3.9.17 / 3.8.17 lacks the extraction
+            # filter added by PEP 706. Fall back to the unfiltered
+            # extraction those versions support - this is CPython's
+            # own documented compatibility idiom for this exact gap.
+            tar.extractall(path=output_dir)
 
     if delete_vault_file:
         vault_path.unlink()

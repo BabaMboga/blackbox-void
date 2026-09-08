@@ -59,7 +59,7 @@ def test_unicode_folder_name_round_trips(tmp_path):
     restored = unlock(str(vault_path), password="hunter2")
     
     assert restored.name == "Café Secrets 日本語"
-    assert (restored / "my important file.txt").read_text() == "unicode folder name"
+    assert (restored / "note.txt").read_text() == "unicode folder name"
 
 def test_unicode_file_content_and_name_round_trip(tmp_path):
     """
@@ -211,7 +211,7 @@ def test_folder_name_starting_with_dot_round_trips_on_unix(tmp_path):
     restored = unlock(str(vault_path), password="hunter2")
 
     assert restored.name == ".already_hidden_folder"
-    assert (restored / "file.txt").read_text() == "already a dotfile" if (restored / "file.txt").exists() else True  # No file was created, but folder should exist
+    assert (restored / "file.txt").read_text() == "already a dotfile" 
 
 
 @pytest.mark.skipif(
@@ -230,7 +230,7 @@ def test_macos_folder_name_with_colon_round_trips(tmp_path):
     vault_path = lock(str(folder), password="hunter2")
     restored = unlock(str(vault_path), password="hunter2")
 
-    assert (restored / "file.txt").read_text() == "colon in folder name test" if (restored / "file.txt").exists() else True  # No file was created, but folder should exist
+    assert (restored / "file.txt").read_text() == "colon in folder name test" 
 
 
 # ---- Passsword edge cases (not path-related, but round-trip adjacent) ----
