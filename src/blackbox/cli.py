@@ -62,7 +62,7 @@ console = Console()
 # has no relationship to the vault's actual security or cryptographic operations.
 
 RARE_JOKE_PROBABILITY = 0.25
-MAINFRAME_DELAY_SECONDS = 1.5 + random.random() * 2.0
+_MAINFRAME_DELAY_SECONDS = 1.5 + random.random() * 2.0
 
 jokes = [
         "The vault opens, and inside is... a single, lonely sock. It seems to be waiting for its mate or the other unsannary activities you do with it.",
