@@ -207,6 +207,8 @@ def test_folder_name_starting_with_dot_round_trips_on_unix(tmp_path):
     folder = tmp_path / ".already_hidden_folder"
     folder.mkdir()
 
+    (folder / "file.txt").write_text("already a dotfile", encoding="utf-8")
+
     vault_path = lock(str(folder), password="hunter2")
     restored = unlock(str(vault_path), password="hunter2")
 
