@@ -42,6 +42,8 @@ DEFAULT_WIDTH = 60
 DEFAULT_HEIGHT = 12
 DEFAULT_FRAME_DELAY = 0.08 # seconds between frames
 _TRAIL_LENGTH = 4 # rows behind the bright head that stay lit, dimmer
+MINIMUM_ANIMATION_SECONDS = 1.5 # Floor so short real operations don't look like a glitch
+
 
 def _random_char() -> str:
     """
@@ -172,6 +174,7 @@ def matrix_rain_during(
     height: int = DEFAULT_HEIGHT,
     frame_delay: float = DEFAULT_FRAME_DELAY,
     console: Console | None = None,
+    minimum_seconds: float = MINIMUM_ANIMATION_SECONDS,
 ) -> Iterator[None]:
     """
     Show the Matrix-rain animation for the duration of the wrapped block of code, unless fast=True.
@@ -188,6 +191,10 @@ def matrix_rain_during(
         height: number of character rows.
         frame_delay: seconds to sleep between animation frames.
         console: an existing rich Consoleto render into. If omitted, a new one is created.
+        minimum_seconds: the animation always runs for at least this long on a SUCCESSFUL operation, even if
+        the real work finished faster - a floor against the animation looking like it cut off abruptly on fast
+        operations. Does NOT apply if the wrapped block raises - a failure should be reported immediately, not
+        held hostage by a cosmetic delay.
     """
 
     if fast:
@@ -195,8 +202,16 @@ def matrix_rain_during(
         return
 
     rain = MatrixRain(width=width, height=height, frame_delay=frame_delay, console=console)
+    start = time.monotonic()
     rain.start()
     try:
         yield
-    finally:
+    except BaseException:
+        rain.stop()
+        raise
+    else:
+        elapsed = time.monotonic() - start
+        remaining = minimum_seconds - elapsed
+        if remaining > 0:
+            time.sleep(remaining)
         rain.stop()
