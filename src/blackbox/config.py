@@ -32,6 +32,32 @@ Drop in whatever you want to disappear. When you're ready, seal it:
 Did you know: the concept of a mathematical "void" (the empty set) was formalised by Ernst Zermelo in 1908 - 
 meaning the idea of "nothing" is,  itself, younger than the light bulb.
 """
+def _is_vault_locked(name: str, base_path: Path) -> bool:
+    """
+    Determine whether a vault under this name is currently locked - checking not just the plain vault filename,
+    but the disguise registry too, since a locked vault is very likely hidden and disguised under a completely
+    different, boring-looking name.
+
+    Without this check, init_void() could not detect an already-locked vault once disguising was introduced, 
+    silently creating a second, orphaned vault instead of correctly regusing to touch anything - exactly the 
+    bug this function exists to prevent.
+    """
+    original_vault_name = f"{name}.vault"
+
+    # Legacy / fallback: a plain, undisguised vault file.
+    if (base_path / original_vault_name).exists():
+        return True
+
+    # The much more common real case: disguised, possibly hidden.
+    registry = _load_disguise_registry(base_path)
+    disguised_name = registry.get(original_vault_name)
+    if disguised_name is not None:
+        if (base_path / disguised_name).exists():
+            return True
+        if (base_path / f".{disguised_name}").exists():
+            return True
+
+    return False
 
 def init_void(base_path: str | Path = ".", name: str = DEFAULT_VAULT_NAME) -> Path | None:
     """
@@ -60,11 +86,14 @@ def init_void(base_path: str | Path = ".", name: str = DEFAULT_VAULT_NAME) -> Pa
 
     base_path = Path(base_path).resolve()
     void_path = base_path / name
-    vault_file_path = base_path / f"{name}.vault"
+    # vault_file_path = base_path / f"{name}.vault"
 
-    if vault_file_path.exists():
-        # Locked. Do NOT create an empty folder over it - that would silently orphan the sealed vault
-        # confuse the user about which one is "real"
+    # if vault_file_path.exists():
+    #     # Locked. Do NOT create an empty folder over it - that would silently orphan the sealed vault
+    #     # confuse the user about which one is "real"
+    #     return None
+
+    if _is_vault_locked(name, base_path):
         return None
 
     if void_path.exists():
