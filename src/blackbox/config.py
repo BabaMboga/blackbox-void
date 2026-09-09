@@ -13,6 +13,7 @@ import json
 import os
 import random
 from pathlib import Path
+from blackbox.hide import hide_path, HideError
 
 # The default name used for a user's first vault folder. "The Void" is blackbox's signature vault name -
 # the place things go to disappear
@@ -32,6 +33,9 @@ Drop in whatever you want to disappear. When you're ready, seal it:
 Did you know: the concept of a mathematical "void" (the empty set) was formalised by Ernst Zermelo in 1908 - 
 meaning the idea of "nothing" is,  itself, younger than the light bulb.
 """
+
+
+
 def _is_vault_locked(name: str, base_path: Path) -> bool:
     """
     Determine whether a vault under this name is currently locked - checking not just the plain vault filename,
@@ -204,11 +208,18 @@ def _load_disguise_registry(base_path: str | Path = ".") -> dict[str, str]:
 
 def _save_disguise_registry(base_path: str | Path, registry: dict[str, str]) -> None:
     """
-    Persist the original_name -> disguised_name mapping.
+    Persist the original_name -> disguised_name mapping, and ensure the registry file itself is hidden via the
+    OS-appropriate mechanism - not just relying on its filename's leading dot, which is cosmetic on its own and
+    doesn't set the real hidden attribute on Windows.
     """
 
     registry_path = _disguise_registry_path(base_path)
     registry_path.write_text(json.dumps(registry), encoding="utf-8")
+
+    try:
+        hide_path(registry_path)
+    except HideError:
+        pass # best-effort; the registry still works, just less concealed
 
 
 def disguise_vault(vault_path: str | Path, base_path: str | Path = ".") -> Path:
