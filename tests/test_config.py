@@ -367,3 +367,25 @@ def test_init_void_does_not_create_orphaned_second_vault(tmp_path):
     assert result is None
     # Confirm no plain "The Void" folder appeared alongside the still-locked (disguised/hidden) original.
     assert not (tmp_path / "The Void").exists()
+
+def test_registry_file_is_hidden_on_windows(tmp_path, monkeypatch):
+    """
+    The registry maps a boring disguised name back to the vault's real identity - leaving it plainly readable
+    would undermine the disguise feature's own purpose, even though it doesnt weaaken the actual encryption.
+    On Windows specifically, the file needs its hidden attribute set explicitly, since its dotted filename 
+    doesn't hide anything there.
+    """
+
+    import platform
+    if platform.system() != "Windows":
+        pytest.skip("Windows-specific hiddent-attribute check")
+
+    vault_file = tmp_path / "The Void.vault"
+    vault_file.write_text("shh")
+    disguise_vault(vault_file, base_path=tmp_path)
+
+    registry_path = tmp_path / DISGUISE_REGISTRY_FILENAME
+    FILE_ATTRIBUTE_HIDDEN = 0x2
+    assert registry_path.stat().st_file_attributes & FILE_ATTRIBUTE_HIDDEN
+
+    
