@@ -335,3 +335,35 @@ def test_disguise_then_undisguise_round_trip(tmp_path):
 
     assert restored == original
     assert restored.read_text() == "the actual secret data"
+
+def test_init_void_detects_locked_vault_even_when_disguised(tmp_path):
+    """
+    This is the core regression test: init_void()must recognise a vault as locked even when it's
+    currently hidden and disguised under a completely different filename - not just when the plain
+    "<name>.vault" file happens to exist.
+    """
+    vault_file = tmp_path / "The Void.vault"
+    vault_file.write_text("pretend encrypted content")
+    disguised_path = disguise_vault(vault_file, base_path=tmp_path)
+
+    result = init_void(base_path=tmp_path)
+
+    assert result is None
+    assert not (tmp_path / "The Void").exists()
+
+def test_init_void_does_not_create_orphaned_second_vault(tmp_path):
+    """
+    The actual bug found in manual QA: locking, then having init_void() incorrectly create a fresh Void,
+    then locking again, silently orphaned the first vault's contents. This conifmrs that can no longer 
+    happen.
+    """
+    vault_file = tmp_path / "The Void.vault"
+    vault_file.write_text("first vault's content")
+    disguise_vault(vault_file, base_path=tmp_path)
+
+    # Previously, this would have wrongly created a fresh empty Void.
+    result = init_void(base_path=tmp_path)
+
+    assert result is None
+    # Confirm no plain "The Void" folder appeared alongside the still-locked (disguised/hidden) original.
+    assert not (tmp_path / "The Void").exists()
