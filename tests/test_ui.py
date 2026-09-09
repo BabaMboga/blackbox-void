@@ -223,13 +223,40 @@ def test_matrix_rain_during_runs_concurrently_not_sequentially():
     """
     console = Console(record=True, width=200)
     start = time.monotonic()
-    with matrix_rain_during(fast=False, width=10, height=4, frame_delay=0.02, console=console):
+    with matrix_rain_during(fast=False, width=10, height=4, frame_delay=0.02, console=console, minimum_seconds=0):
         time.sleep(0.2)
     elapsed = time.monotonic() - start
 
     # Should be close to the 0.2s sleep, not 0.2s plus a separate
     # animation duration stacked sequentially on top.
     assert elapsed < 0.4
+
+def test_matrix_rain_during_pads_up_to_minimum_on_success():
+    """
+    A fast real operation should still make the animation run for at least 
+    minimum_seconds - this is the actual fix for the animation looking like
+    cut it off abruptly.
+    """
+    console = Console(record=True, width=200)
+    start = time.monotonic()
+    with matrix_rain_during(fast=False, width=10, height=4, frame_delay=0.02, console=console, minimum_seconds=0.3):
+        pass # instant "real work"
+    elapsed = time.monotonic() - start
+    assert elapsed >= 0.3
+
+def test_matrix_rain_during_does_not_pad_on_exception():
+    """
+    A failure must be reported immediately - the minimum-duration floor must 
+    never delay error propagation. This is the actual fix for the animation 
+    holding a failure hostage.
+    """
+    console = Console(record=True, width=200)
+    start = time.monotonic()
+    with pytest.raises(ValueError):
+        with matrix_rain_during(fast=False, width=10, height=4, frame_delay=0.02, console=console, minimum_seconds=5.0):
+            raise ValueError("boom")
+    elapsed = time.monotonic() - start
+    assert elapsed < 1.0 # nowhere near the 5s floor
 
 
 def test_matrix_rain_during_stops_cleanly_after_wrapped_block():
