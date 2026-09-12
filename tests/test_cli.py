@@ -168,9 +168,13 @@ def test_lock_hides_the_disguised_vault_file(runner):
         runner.invoke(main, ["init"])
         runner.invoke(main, ["lock", "--fast"], input="hunter2\nhunter2\n")
 
+        known_bookkeeping_files = {
+            ".blackbox_disguise_registry.json",
+            ".blackbox_vault-identity.json",
+        }
         hidden_entries = [
             p.name for p in Path(".").iterdir()
-            if _is_hidden(p) and p.name != ".blackbox_disguise_registry.json"
+            if _is_hidden(p) and p.name not in known_bookkeeping_files
         ]
         assert len(hidden_entries) == 1
 

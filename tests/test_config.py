@@ -403,7 +403,7 @@ def test_record_then_verify_same_password_returns_true(tmp_path):
 
 def test_record_then_verify_different_password_returns_false(tmp_path):
     record_vault_password("The Void", "hunter2", base_path=tmp_path)
-    assert verify_vault_password("The Void", "wrongpassword", base_path=tmp_path)
+    assert verify_vault_password("The Void", "wrongpassword", base_path=tmp_path) is False
 
 def test_record_vault_password_overwrites_previous_record(tmp_path):
     record_vault_password("The Void","hunter2", base_path=tmp_path)
@@ -418,4 +418,4 @@ def test_forget_vault_password_removes_record(tmp_path):
 
     # With no record, any password is accepted again (back to first-lock state).
     assert verify_vault_password("The Void", "anything", base_path=tmp_path) is True
-    
+
