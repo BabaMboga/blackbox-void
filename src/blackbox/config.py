@@ -10,15 +10,20 @@ a brand-new user starts with, and later, what a sealed vault pretends to be call
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 import random
 from pathlib import Path
 from blackbox.hide import hide_path, HideError
 
+from blackbox.cryto import derive_key, SALT_SIZE
+
 # The default name used for a user's first vault folder. "The Void" is blackbox's signature vault name -
 # the place things go to disappear
 
 DEFAULT_VAULT_NAME = "The Void"
+
+VALUE_IDENTITY_FILENAME=".blackbox_vault-identity.json"
 
 _WELCOME_MESSAGE = """\
 You have entered The Void.
@@ -34,6 +39,77 @@ Did you know: the concept of a mathematical "void" (the empty set) was formalise
 meaning the idea of "nothing" is,  itself, younger than the light bulb.
 """
 
+
+def _vault_identity_path(base_path: str | path = ".") -> Path:
+    return Path(base_path).resolve() / VALUE_IDENTITY_FILENAME
+
+def _load_vault_identity(base_path: str | Path = ".") -> dict[str, dict]:
+    """
+    Fail-open, like the disguise registry - a corrupted or missing identity file should never block locking, 
+    only the deliberate "wrong password" comparison should. 
+    """
+    path = _vault_identity_path(base_path)
+    if not path.exists():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else {}
+    except (json.JSONDecodeError, OSError,ValueError):
+        return {}
+
+def _save_vault_identity(base_path: str | Path, identity: dict[str, dict]) -> None:
+    """
+    Persist the identity file, and hide it the same way the disguise registry is hidden - it's not the vault's
+    encryption key, but it's still a password-derived artifact that shouldn't sit in plain view any more than 
+    necessary.
+    """
+    path = _vault_identity_path(base_path)
+    path.write_text(json.dumps(identity), encoding="utf-8")
+    try:
+        hide_path(path)
+    except HideError:
+        pass
+
+def _verifier_for(password: str,salt: bytes) -> str:
+    """
+    A one-way SHA-256 hash of the Argon2id-derivedkey - never the raw deriver key itself, and never the password.
+    This is purely a comparison artifact: "does this password produce the same key as last time," notinh more.
+    """
+    derived = derive_key(password, salt)
+    return hashlib.sha256(derived).hexdigest()
+
+def record_vault_password(name: str, password: str, base_path: str | Path = ".") -> None:
+    """
+    Record (or overwrite) the passwird verifier for a vault name, so future lock() calls for the same name can 
+    confirm the same password is being reused, rather than silently accepting a different one on every lock.
+    """
+    salt = os.urandom(SALT_SIZE)
+    identity = _load_vault_identity(base_path)
+    identity[name] = {
+        "salt": base64.b64encode(salt).decode("ascii"),
+        "verifier": _verifier_for(password, salt),
+    }
+    _save_vault_identity(base_path, identity)
+
+def verify_vault_password(name: str, password: str, base_path: str | Path = ".") -> bool:
+    """
+    True if `password` matches the previously recorded password for this vault name, or if nothing has been 
+    recorded yet (this is the vault's first-ever lock, so there's nothing to compare against).
+    """
+    record = _load_vault_identity(base_path).get(name)
+    if record is None:
+        return True
+    salt = base64.b64decode(record["salt"])
+    return _verifier_for(password, salt) == record["verifier"]
+
+def forget_vault_password(name: str, base_path: str | Path = ".") -> None:
+    """
+    Remove a vault's recorded password verififer entierly.
+    """
+    identity = _load_vault_identity(base_path)
+    if name in identity:
+        del identity[name]
+        _save_vault_identity(base_path, identity)
 
 
 def _is_vault_locked(name: str, base_path: Path) -> bool:
