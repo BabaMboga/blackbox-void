@@ -40,6 +40,12 @@ Did you know: the concept of a mathematical "void" (the empty set) was formalise
 meaning the idea of "nothing" is,  itself, younger than the light bulb.
 """
 
+def has_recorded_password(name: str, base_path: str | Path = ".") -> bool:
+    """
+    True if a password verifier is currently on record for this vault name - lets callers distinguish "no 
+    record. first lock" from "record exists and matched" versus silently treating both the same way.
+    """
+    return _load_vault_identity(base_path).get(name) is not None
 
 def _vault_identity_path(base_path: str | path = ".") -> Path:
     return Path(base_path).resolve() / VALUE_IDENTITY_FILENAME
