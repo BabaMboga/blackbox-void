@@ -45,6 +45,8 @@ from blackbox.config import (
     disguise_vault,
     forget_disguise_entry,
     init_void,
+    verify_vault_password,
+    record_vault_password,
 )
 
 from blackbox.easter_eggs import print_access_attempt_flavor
@@ -263,11 +265,19 @@ def status(name: str) -> None:
 @main.command()
 @click.argument("folder", default=DEFAULT_VAULT_NAME, required=False)
 @click.option("--fast", is_flag=True, help="Skip the Matrix-rain animation.")
-def lock(folder: str, fast: bool) -> None:
+@click.option(
+    "--change-password",
+    is_flag=True,
+    help="Set a new password for this vault,replacing the remembered one."
+)
+def lock(folder: str, fast: bool, change_password: bool) -> None:
     """
-    Encrypt FOLDER into a sealed .vault file. Defaults to "The Void".
+    Encrypt FOLDER into a sealed, disguised, hidden vault. Defaults to "The Void". Once a vaul has been 
+    locked with a password, later locks of the same name require that same password - use --change-password
+    to deliberately set a new one instead.
     """
     folder_path = Path(folder)
+    base_path = Path(".").resolve()
 
     if not folder_path.exists():
         console.print(f"[bold red]Error:[/bold red] '{folder}' does not exist.")
@@ -280,6 +290,15 @@ def lock(folder: str, fast: bool) -> None:
         "Password", hide_input=True, confirmation_prompt=True
     )
 
+    if not change_password and not verify_vault_password(folder, password, base_path=base_path):
+        console.print(
+            "[bold red]Lock failed: [/bold red] this vault was previously locked "
+            "with a different password. Run "
+            "[bold]blackbox lock --change-password[/bold] if you really want to "
+            "set a new one."
+        )
+        sys.exit(1)
+
     print_access_attempt_flavor(console)
 
     try:
@@ -290,10 +309,17 @@ def lock(folder: str, fast: bool) -> None:
         console.print(f"[bold red]Lock failed:[/bold red] {exc}")
         sys.exit(1)
 
-    console.print(
-        f"[bold green]Sealed:[/bold green] The vault is now encrypted, "
-        "disguised, and hidden."
-    )
+    record_vault_password(folder, password, base_path=base_path)
+
+    if change_password:
+        console.print("[bold green]Password changed.[/bold green] Vault sealed with the new password.")
+    else:
+        console.print(
+                f"[bold green]Sealed:[/bold green] The vault is now encrypted, "
+                "disguised, and hidden."
+        )
+
+    
 
 @main.command()
 @click.argument("folder", default=DEFAULT_VAULT_NAME, required=False)
