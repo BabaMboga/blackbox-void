@@ -10,6 +10,7 @@ a brand-new user starts with, and later, what a sealed vault pretends to be call
 from __future__ import annotations
 
 import json
+import base64
 import hashlib
 import os
 import random
