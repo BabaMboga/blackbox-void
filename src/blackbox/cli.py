@@ -47,6 +47,7 @@ from blackbox.config import (
     init_void,
     verify_vault_password,
     record_vault_password,
+    has_recorded_password
 )
 
 from blackbox.easter_eggs import print_access_attempt_flavor
@@ -311,12 +312,30 @@ def lock(folder: str, fast: bool, change_password: bool) -> None:
 
     record_vault_password(folder, password, base_path=base_path)
 
+    # if change_password: 
+    #     pass # explicit override, no check needed
+    #     console.print("[bold green]Password changed.[/bold green] Vault sealed with the new password.")
+    # else:
+    #     console.print(
+    #             f"[bold green]Sealed:[/bold green] The vault is now encrypted, "
+    #             "disguised, and hidden."
+    #     )
+
     if change_password:
-        console.print("[bold green]Password changed.[/bold green] Vault sealed with the new password.")
+        pass  # explicit override, no check needed
+    elif has_recorded_password(folder, base_path=base_path):
+        if not verify_vault_password(folder, password, base_path=base_path):
+            console.print(
+                "[bold red]Lock failed:[/bold red] this vault was previously locked "
+                "with a different password. Run "
+                "[bold]blackbox lock --change-password[/bold] if you really want to "
+                "set a new one."
+            )
+            sys.exit(1)
     else:
         console.print(
-                f"[bold green]Sealed:[/bold green] The vault is now encrypted, "
-                "disguised, and hidden."
+            "[dim yellow]No prior password on record for this vault — "
+            "treating this as its first lock.[/dim yellow]"
         )
 
     
