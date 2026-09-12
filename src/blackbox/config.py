@@ -16,7 +16,7 @@ import random
 from pathlib import Path
 from blackbox.hide import hide_path, HideError
 
-from blackbox.cryto import derive_key, SALT_SIZE
+from blackbox.crypto import derive_key, SALT_SIZE
 
 # The default name used for a user's first vault folder. "The Void" is blackbox's signature vault name -
 # the place things go to disappear
