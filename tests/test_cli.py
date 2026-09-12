@@ -655,3 +655,48 @@ def test_rare_joke_never_appears_on_a_failed_unlock(runner, monkeypatch):
             _normalised(joke) in _normalised(result.output)
             for joke in cli_module.jokes
         )
+
+def test_lock_second_time_with_same_password_succeeds(runner):
+    with runner.isolated_filesystem():
+        runner.invoke(main, ["init"])
+        runner.invoke(main, ["lock", "--fast"], input="hunter2\nhunter2\n")
+        runner.invoke(main, ["unlock", "--fast"], input="hunter2\n")
+
+        result = runner.invoke(main, ["lock", "--fast"], input="hunter2\nhunter2\n")
+
+        assert result.exit_code == 0
+
+
+def test_lock_second_time_with_different_password_is_rejected(runner):
+    """The core regression test for this feature: a different
+    password on a later lock must be refused, and critically, must
+    leave the folder completely untouched — not encrypted at all.
+    """
+    with runner.isolated_filesystem():
+        runner.invoke(main, ["init"])
+        runner.invoke(main, ["lock", "--fast"], input="hunter2\nhunter2\n")
+        runner.invoke(main, ["unlock", "--fast"], input="hunter2\n")
+
+        result = runner.invoke(main, ["lock", "--fast"], input="1234\n1234\n")
+
+        assert result.exit_code != 0
+        assert "previously locked with a different password" in result.output
+        assert Path("The Void").exists()          # untouched, still plain
+        assert _visible_entries() == ["The Void"]  # nothing got encrypted
+
+
+def test_lock_change_password_flag_allows_a_new_password(runner):
+    with runner.isolated_filesystem():
+        runner.invoke(main, ["init"])
+        runner.invoke(main, ["lock", "--fast"], input="hunter2\nhunter2\n")
+        runner.invoke(main, ["unlock", "--fast"], input="hunter2\n")
+
+        result = runner.invoke(
+            main, ["lock", "--fast", "--change-password"], input="1234\n1234\n"
+        )
+        assert result.exit_code == 0
+
+        # Old password no longer works; new one does.
+        runner.invoke(main, ["unlock", "--fast"], input="hunter2\n")  # should fail
+        final = runner.invoke(main, ["unlock", "--fast"], input="1234\n")
+        assert final.exit_code == 0
