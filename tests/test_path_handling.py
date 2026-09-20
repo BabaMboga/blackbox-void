@@ -228,6 +228,7 @@ def test_macos_folder_name_with_colon_round_trips(tmp_path):
     """
     folder = tmp_path / "Meeting 3:00 Notes"
     folder.mkdir()
+    (folder / "file.txt").write_text("colon in folder name test")
 
     vault_path = lock(str(folder), password="hunter2")
     restored = unlock(str(vault_path), password="hunter2")
