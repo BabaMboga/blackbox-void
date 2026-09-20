@@ -18,7 +18,8 @@ from blackbox.config import (
     _load_disguise_registry,
     verify_vault_password,
     record_vault_password,
-    forget_vault_password
+    forget_vault_password,
+    DISGUISE_REGISTRY_FILENAME,
 )
 
 # ----init_void(): the three-state lifecycle
