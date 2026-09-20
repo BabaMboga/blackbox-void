@@ -374,41 +374,41 @@ def unlock(folder: str, fast: bool) -> None:
 
     print_access_attempt_flavor(console)
 
+
     revealed_path: Path | None = None
 
     try:
         with matrix_rain_during(fast=fast, console=console):
             revealed_path = unhide_path(located)
-            # Call unlock directly on the still-dsiguised name - see 
-            # docstring above for why this ordering matters.
+
+            # If a previous failed attempt hid this vault's cooldown
+            # sidecar, unhide it too before calling vault.unlock() —
+            # otherwise vault.py's own successful-unlock cleanup
+            # (_reset_failed_attempts) looks for the plain filename and
+            # silently fails to find it, orphaning a hidden counter file
+            # forever once the next lock picks a different disguise name.
+            sidecar_path = revealed_path.parent / f"{revealed_path.name}{ATTEMPTS_SIDECAR_SUFFIX}"
+            hidden_sidecar_path = sidecar_path.parent / f".{sidecar_path.name}"
+            if hidden_sidecar_path.exists():
+                try:
+                    unhide_path(hidden_sidecar_path)
+                except HideError:
+                    pass  # best-effort; don't block the real unlock attempt over this
+
             restored_folder = vault_unlock(revealed_path, password)
     except VaultError as exc:
-        # Wrong password or corruption. vault.unlock() has NOT deleted 
-        # the file in this case (it only deletes on success), so the 
-        # disguised file is still sitting there, revealed/unhidden re-hide it (
-        # no need to re-disguise; its disguised name never changed) so 
-        # a failed attempt never leaves it exposed.
-
         if revealed_path is not None and revealed_path.exists():
             try:
                 hide_path(revealed_path)
             except Exception:
-                pass # best-effort; dont mask the real failure below
-
-            # vault.unlock() also writes a failed-attempt cooldown
-            # sidecar next to whatever filename it was called with -
-            # in this case, the still-boring disguised name, so it doesn't
-            # leak the vault's real identity. It's still plainly visible on its
-            # own, though, so hide it too for full concealment consistency.
+                pass
 
             sidecar_path = revealed_path.parent / f"{revealed_path.name}{ATTEMPTS_SIDECAR_SUFFIX}"
-
             if sidecar_path.exists():
                 try:
                     hide_path(sidecar_path)
                 except Exception:
                     pass
-
         console.print(f"[bold red]Unlock failed:[/bold red] {exc}")
         sys.exit(1)
     except HideError as exc:
