@@ -704,3 +704,29 @@ def test_lock_change_password_flag_allows_a_new_password(runner):
         runner.invoke(main, ["unlock", "--fast"], input="hunter2\n")  # should fail
         final = runner.invoke(main, ["unlock", "--fast"], input="1234\n")
         assert final.exit_code == 0
+
+def test_successful_unlock_leaves_no_orphaned_hidden_sidecar(runner):
+    """Regression test: a failed unlock attempt hides the cooldown
+    sidecar; a subsequent SUCCESSFUL unlock must actually clean it
+    up, not leave it orphaned as a hidden file with no vault pointing
+    to it anymore.
+    """
+    with runner.isolated_filesystem():
+        runner.invoke(main, ["init"])
+        runner.invoke(main, ["lock", "--fast"], input="hunter2\nhunter2\n")
+
+        runner.invoke(main, ["unlock", "--fast"], input="wrongpassword\n")
+        # A hidden sidecar should exist at this point.
+        hidden_files_after_failure = [
+            p.name for p in Path(".").iterdir() if p.name.endswith(".attempts.json")
+        ]
+        assert len(hidden_files_after_failure) == 1
+
+        result = runner.invoke(main, ["unlock", "--fast"], input="hunter2\n")
+        assert result.exit_code == 0
+
+        # After success, no attempts-sidecar of any kind should remain.
+        leftover_sidecars = [
+            p.name for p in Path(".").iterdir() if "attempts" in p.name
+        ]
+        assert leftover_sidecars == []
