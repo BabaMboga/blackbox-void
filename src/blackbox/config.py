@@ -15,7 +15,7 @@ import hashlib
 import os
 import random
 from pathlib import Path
-from blackbox.hide import hide_path, HideError
+from blackbox.hide import hide_path, HideError, unhide_path
 
 from blackbox.crypto import derive_key, SALT_SIZE
 
@@ -66,11 +66,15 @@ def _load_vault_identity(base_path: str | Path = ".") -> dict[str, dict]:
 
 def _save_vault_identity(base_path: str | Path, identity: dict[str, dict]) -> None:
     """
-    Persist the identity file, and hide it the same way the disguise registry is hidden - it's not the vault's
-    encryption key, but it's still a password-derived artifact that shouldn't sit in plain view any more than 
-    necessary.
+    Same pattern as _save_disguise_registry - unhide before write, re-hide after, to avoid the Windows PermissionError
+    on rewwriting an already-hidden file.
     """
     path = _vault_identity_path(base_path)
+    if path.exists():
+        try:
+            unhide_path(path)
+        except HideError:
+            pass
     path.write_text(json.dumps(identity), encoding="utf-8")
     try:
         hide_path(path)
@@ -291,12 +295,19 @@ def _load_disguise_registry(base_path: str | Path = ".") -> dict[str, str]:
 
 def _save_disguise_registry(base_path: str | Path, registry: dict[str, str]) -> None:
     """
-    Persist the original_name -> disguised_name mapping, and ensure the registry file itself is hidden via the
-    OS-appropriate mechanism - not just relying on its filename's leading dot, which is cosmetic on its own and
-    doesn't set the real hidden attribute on Windows.
+    Persist the original_name -> disguised_name mapping, and ensure the registry file itself hidden.
+
+    On Windows, a file already marked hidden+system can raise PermissionError when reopened for a plain write_text()
+    call - so before writing, unhide it first (a no-op rename on macOs/Linux, since the filename is already dotted;
+    a real attribute-clearing step on Windows), write, then re-hide.
     """
 
     registry_path = _disguise_registry_path(base_path)
+    if registry_path.exists():
+        try:
+            unhide_path(registry_path)
+        except HideError:
+            pass
     registry_path.write_text(json.dumps(registry), encoding="utf-8")
 
     try:
