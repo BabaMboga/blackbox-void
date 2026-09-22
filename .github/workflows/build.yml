@@ -3,6 +3,11 @@ name: Build standalone binaries
 # Builds a double-clickable blackbox executable on each OS separately,
 # since PyInstaller cannot cross-compile — a binary built on Linux only
 # ever runs on Linux, so each target OS needs its own runner.
+#
+# On a tagged push (e.g. v1.0.0), the final `release` job collects all
+# three binaries and attaches them directly to the GitHub Release for
+# that tag, so users can download a working executable from the
+# Releases page without needing Python or any build step themselves.
 
 on:
   push:
@@ -53,3 +58,32 @@ jobs:
         with:
           name: ${{ matrix.artifact_name }}
           path: ${{ matrix.binary_path }}
+
+  release:
+    name: Attach binaries to GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    # Only run on an actual tag push — workflow_dispatch runs (manual
+    # testing) build and upload artifacts above, but shouldn't attempt
+    # to create/modify a release that may not correspond to this run.
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - name: Download all built binaries
+        uses: actions/download-artifact@v4
+        with:
+          path: dist-artifacts
+
+      - name: Flatten and rename for release assets
+        run: |
+          mkdir -p release-assets
+          cp dist-artifacts/blackbox-windows/blackbox.exe release-assets/blackbox-windows.exe
+          cp dist-artifacts/blackbox-macos/blackbox release-assets/blackbox-macos
+          cp dist-artifacts/blackbox-linux/blackbox release-assets/blackbox-linux
+          chmod +x release-assets/blackbox-macos release-assets/blackbox-linux
+
+      - name: Create release and attach binaries
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-assets/*
+          generate_release_notes: true
