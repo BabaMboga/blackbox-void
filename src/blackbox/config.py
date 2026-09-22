@@ -66,13 +66,12 @@ def _load_vault_identity(base_path: str | Path = ".") -> dict[str, dict]:
 
 def _save_vault_identity(base_path: str | Path, identity: dict[str, dict]) -> None:
     """
-    Same pattern as _save_disguise_registry - unhide before write, re-hide after, to avoid the Windows PermissionError
-    on rewwriting an already-hidden file.
+    Same pattern as _save_disguise_registry see that docstring for why capturing unhide_path()'s returned path matters.
     """
     path = _vault_identity_path(base_path)
     if path.exists():
         try:
-            unhide_path(path)
+            path = unhide_path(path)
         except HideError:
             pass
     path.write_text(json.dumps(identity), encoding="utf-8")
@@ -297,15 +296,16 @@ def _save_disguise_registry(base_path: str | Path, registry: dict[str, str]) -> 
     """
     Persist the original_name -> disguised_name mapping, and ensure the registry file itself hidden.
 
-    On Windows, a file already marked hidden+system can raise PermissionError when reopened for a plain write_text()
-    call - so before writing, unhide it first (a no-op rename on macOs/Linux, since the filename is already dotted;
-    a real attribute-clearing step on Windows), write, then re-hide.
+    On Windows, a file already marked hidden+s write, then re-hide. Critically, unhide_path() renames 
+    the file on macOS/Linux, so its RETURNED path must be used for the write - reusing the original path
+    variable would write a fresh file at the old (now-stale) location while the actually-renamed file 
+    sits there orphaned. 
     """
 
     registry_path = _disguise_registry_path(base_path)
     if registry_path.exists():
         try:
-            unhide_path(registry_path)
+            registry_path = unhide_path(registry_path)
         except HideError:
             pass
     registry_path.write_text(json.dumps(registry), encoding="utf-8")
