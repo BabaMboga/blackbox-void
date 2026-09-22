@@ -420,3 +420,39 @@ def test_forget_vault_password_removes_record(tmp_path):
     # With no record, any password is accepted again (back to first-lock state).
     assert verify_vault_password("The Void", "anything", base_path=tmp_path) is True
 
+def test_disguise_registry_never_creates_orphaned_undotted_file(tmp_path):
+    """Regression test: multiple saves of the disguise registry must
+    never leave behind an orphaned, undotted duplicate. This happened
+    previously because unhide_path()'s returned (renamed) path was
+    discarded, so a subsequent write_text() call recreated a fresh
+    file at the stale, still-dotted path while the actually-renamed
+    file sat there orphaned and visible.
+    """
+    vault_one = tmp_path / "vault_one.vault"
+    vault_one.write_text("first")
+    disguise_vault(vault_one, base_path=tmp_path)
+
+    vault_two = tmp_path / "vault_two.vault"
+    vault_two.write_text("second")
+    disguise_vault(vault_two, base_path=tmp_path)  # second registry save
+
+    registry_like_files = [
+        p.name for p in tmp_path.iterdir() if "disguise_registry" in p.name
+    ]
+    assert registry_like_files == [DISGUISE_REGISTRY_FILENAME]
+
+
+def test_vault_identity_never_creates_orphaned_undotted_file(tmp_path):
+    """Same regression class as the disguise registry — see that
+    test's docstring. Multiple saves of the vault-identity file must
+    not leave an orphaned undotted duplicate behind either.
+    """
+    record_vault_password("The Void", "hunter2", base_path=tmp_path)
+    record_vault_password("The Void", "newpassword", base_path=tmp_path)
+
+    identity_like_files = [
+        p.name for p in tmp_path.iterdir()
+        if "vault-identity" in p.name or "vault_identity" in p.name
+    ]
+    assert len(identity_like_files) == 1
+
