@@ -2,14 +2,16 @@
 blackbox.cli - the blackbox command-line interface.
 
 Ties together everything built so far: config.init_void() for first-run setup, vault.lock()/unlock()
-for the actual encryption, ui.matrix_rain_during() for the loading animation, and 
-easter_eggs.print_access_attempt_flavor() for the trivia/fake-message flair. Every cinnabd's output
-is styled through a single shared rich Console instance.
+for the actual encryption,hide.hide_path()/unhide_path() for the OS-level concealment, 
+config.disguise_vault()/forget_disguise_entry() for boring-name disguising, ui.matrix_rain_during() 
+for the loading animation, and easter_eggs.print_access_attempt_flavor() for the trivia/fake-message
+flair. Every cinnabd's output is styled through a single shared rich Console instance.
 
 Concealment ordering (resolved cross-platform question):
 
     LOCK: vault.lock() -> disguise_vault() -> hide_path()
-    UNLOCK: locate on disk -> unhide_path() -> undisguise_vault() -> vault.unlock()
+    UNLOCK: locate on disk -> unhide_path() -> undisguise_vault() -> vault.unlock() directly on the 
+        still disguised name (not the plain original name) -> forget_disguise_entry()
 
 Locating the file on unlock is the tricky part, since hiding behaves differently per OS: on macOS/Linux, 
 hide_path() renames the disguised file to a dotfile; on Windows, it sets attributes in place without 
@@ -18,13 +20,13 @@ name OR its dotfile-prefixed name, depending on which OS locked it. _locate_lock
 candidate paths and uses whichever actually exists.
 
 vault.unlock() is deliberately called on the disguised name, not the plain original name — it reads the 
-real folder name from the encrypted header, not from the filename, so there's no need to expose the recognizable 
+real folder name from the encrypted header, not from the filename, so there's no need to expose the recognisable 
 plain name during an attempt at all. This also means vault.py's own failed-attempt cooldown sidecar (step 10) 
 inherits the boring disguised name rather than leaking the vault's real identity.
  
 A wrong password must never strip a vault's concealment. If vault.unlock() fails after the file has 
-already been revealed and undisguised, it gets re-disguised and re-hidden before the error is
-reported — a failed attempt should never leave a vault sitting around in plain, visible form.
+already been revealed and undisguised, the vault file (and its cooldown sidecar) re-disguised and re-hidden before
+the error is reported — a failed attempt should never leave a vault sitting around in plain, visible form.
 """
 
 from __future__ import annotations
@@ -43,6 +45,9 @@ from blackbox.config import (
     disguise_vault,
     forget_disguise_entry,
     init_void,
+    verify_vault_password,
+    record_vault_password,
+    has_recorded_password
 )
 
 from blackbox.easter_eggs import print_access_attempt_flavor
@@ -55,25 +60,14 @@ from blackbox.vault import unlock as vault_unlock
 
 console = Console()
 
-# purely cosmetic easter-egg timing.This deliberately has no relationship to the vault's
-# actual security or cryptographic operations.
+# --- Hidden flourishes -------
+# purely cosmetic easter-egg timing and flavor that never affects real behavior.This deliberately 
+# has no relationship to the vault's actual security or cryptographic operations.
+
+RARE_JOKE_PROBABILITY = 0.25
 _MAINFRAME_DELAY_SECONDS = 1.5 + random.random() * 2.0
 
-def _fake_mainframe_connection() -> None:
-    """
-    A purely cosmetic easter-egg: Preteneds to connect to a mainframe before a mundane CLI action.
-    """
-    console.print("[dim]Connecting to mainframe...[/dim]")
-    time.sleep(_MAINFRAME_DELAY_SECONDS)
-    console.print(" [green]Connected.[/green]")
-    console.print("[dim]Mainframe reports: everything is surprisingly and astonishingly normal.[/dim]")
-
-def _print_unlock_joke() -> None:
-    """
-    A purely cosmetic easter-egg: prints the rare-successful-unlock joke easter-egg.
-    This is deliberately not called automatically, but for only a fraction of the time.
-    """
-    jokes = [
+jokes = [
         "The vault opens, and inside is... a single, lonely sock. It seems to be waiting for its mate or the other unsannary activities you do with it.",
         "You unlock the vault, and a tiny voice whispers: 'I knew you'd come back.'",
         "Inside the vault, you find a note that says: 'Congratulations! You've unlocked the secrets of the universe. Just kidding, it's just a vault.'",
@@ -95,14 +89,37 @@ def _print_unlock_joke() -> None:
         "The Void is pleased with your credentials. It has requested snacks as compensation.",
         "Decrypting contents... please do not stare directly at the terminal. The terminal gets nervous and quite shy.",
 
-    ]
+]
+
+KONAMI_MESSAGE = (
+    "\u2191 \u2192 \u2193 \u2193 \u2190 \u2192 \u2190 \u2192 B A\n\n"
+    "Konami code accepted. Unfortunately, this grants you absolutely"
+    "nothing \u2014 in Blackbox. Your dedication has been noted, however,"
+    "you have earned a few extra hacker points for style."
+)
+
+def _fake_mainframe_connection() -> None:
+    """
+    A purely cosmetic easter-egg: Preteneds to connect to a mainframe before a mundane CLI action.
+    """
+    console.print("[dim]Connecting to mainframe...[/dim]")
+    time.sleep(_MAINFRAME_DELAY_SECONDS)
+    console.print(" [green]Connected.[/green]")
+    console.print("[dim]Mainframe reports: everything is surprisingly and astonishingly normal.[/dim]")
+
+def _print_unlock_joke(jokes) -> None:
+    """
+    A purely cosmetic easter-egg: prints the rare-successful-unlock joke easter-egg.
+    This is deliberately not called automatically, but for only a fraction of the time.
+    """
+    
 
     console.print("[dim]As the vault opens, a mysterious message appears...[/dim]")
     console.print(
         "[bold magenta]ACCESS GRANTED![/bold magenta] "
         "The mainframe is mildly impressed. "
     )
-    console.print(f"[dim]{random.choice(jokes)}[/dim]")
+    console.print(f"[dim italic]{random.choice(jokes)}[/dim italic]")
 
 def _locate_locked_vault(original_vault_name: str, base_path: Path) -> Path | None:
     """
@@ -170,13 +187,20 @@ def _conceal(vault_path: Path, base_path: Path) -> None:
     is_eager=True,
     help="Trigger the hidden Blackbox easter egg."
 )
-def main(konami: bool) -> None:
+@click.pass_context
+def main(ctx: click.Context, konami: bool) -> None:
     """Blackbox - Hide it.Lock it. Dare them to find it."""
 
     if konami:
+        console.print(f"[bold magenta]{KONAMI_MESSAGE}[/bold magenta]")
         console.print("[bold magenta] KONAMI PROTOCOL ACCEPTED![/bold magenta]")
         console.print("[dim]↑ ↑ ↓ ↓ ← → ← → B A[/dim] ")
         console.print("[bold green]BLACKBOX CHEAT CODE: +30 hacker points.[/bold green]")
+        ctx.exit()
+
+    if ctx.invoked_subcommand is None:
+        console.print("[bold red]Error:[/bold red] No command specified. Run [bold]blackbox --help[/bold] for usage information.")
+        click.echo(ctx.get_help())
 
 @main.command()
 @click.option(
@@ -209,7 +233,16 @@ def init(name: str) -> None:
 def status(name: str) -> None:
     """
     Show whether a vault is currently locked or unlocked.
+
+    Opens with a deliberately fake, theatrical "connecting to mainframe" message, purely for flavor before
+    doing the actual, entirely mundane work of checking whether a couple of files exist. Pure flavor - there
+    is no actual mainfraime, this is a local filesystem check that takes a few milliseconds in reality.
     """
+
+    # console.print("[dim]Connecting to mainframe...[/dim]")
+    # time.sleep(MAINFRAME_DELAY_SECONDS)
+    # console.print("[green]Connected.[/green]")
+
     base_path = Path(".").resolve()
     void_path = base_path / name
 
@@ -233,11 +266,19 @@ def status(name: str) -> None:
 @main.command()
 @click.argument("folder", default=DEFAULT_VAULT_NAME, required=False)
 @click.option("--fast", is_flag=True, help="Skip the Matrix-rain animation.")
-def lock(folder: str, fast: bool) -> None:
+@click.option(
+    "--change-password",
+    is_flag=True,
+    help="Set a new password for this vault,replacing the remembered one."
+)
+def lock(folder: str, fast: bool, change_password: bool) -> None:
     """
-    Encrypt FOLDER into a sealed .vault file. Defaults to "The Void".
+    Encrypt FOLDER into a sealed, disguised, hidden vault. Defaults to "The Void". Once a vaul has been 
+    locked with a password, later locks of the same name require that same password - use --change-password
+    to deliberately set a new one instead.
     """
     folder_path = Path(folder)
+    base_path = Path(".").resolve()
 
     if not folder_path.exists():
         console.print(f"[bold red]Error:[/bold red] '{folder}' does not exist.")
@@ -250,6 +291,15 @@ def lock(folder: str, fast: bool) -> None:
         "Password", hide_input=True, confirmation_prompt=True
     )
 
+    if not change_password and not verify_vault_password(folder, password, base_path=base_path):
+        console.print(
+            "[bold red]Lock failed: [/bold red] this vault was previously locked "
+            "with a different password. Run "
+            "[bold]blackbox lock --change-password[/bold] if you really want to "
+            "set a new one."
+        )
+        sys.exit(1)
+
     print_access_attempt_flavor(console)
 
     try:
@@ -260,10 +310,35 @@ def lock(folder: str, fast: bool) -> None:
         console.print(f"[bold red]Lock failed:[/bold red] {exc}")
         sys.exit(1)
 
-    console.print(
-        f"[bold green]Sealed:[/bold green] The vault is now encrypted, "
-        "disguised, and hidden."
-    )
+    record_vault_password(folder, password, base_path=base_path)
+
+    # if change_password: 
+    #     pass # explicit override, no check needed
+    #     console.print("[bold green]Password changed.[/bold green] Vault sealed with the new password.")
+    # else:
+    #     console.print(
+    #             f"[bold green]Sealed:[/bold green] The vault is now encrypted, "
+    #             "disguised, and hidden."
+    #     )
+
+    if change_password:
+        pass  # explicit override, no check needed
+    elif has_recorded_password(folder, base_path=base_path):
+        if not verify_vault_password(folder, password, base_path=base_path):
+            console.print(
+                "[bold red]Lock failed:[/bold red] this vault was previously locked "
+                "with a different password. Run "
+                "[bold]blackbox lock --change-password[/bold] if you really want to "
+                "set a new one."
+            )
+            sys.exit(1)
+    else:
+        console.print(
+            "[dim yellow]No prior password on record for this vault — "
+            "treating this as its first lock.[/dim yellow]"
+        )
+
+    
 
 @main.command()
 @click.argument("folder", default=DEFAULT_VAULT_NAME, required=False)
@@ -299,40 +374,41 @@ def unlock(folder: str, fast: bool) -> None:
 
     print_access_attempt_flavor(console)
 
+
     revealed_path: Path | None = None
 
     try:
         with matrix_rain_during(fast=fast, console=console):
             revealed_path = unhide_path(located)
-            # Call unlock directly on the still-dsiguised name - see 
-            # docstring above for why this ordering matters.
+
+            # If a previous failed attempt hid this vault's cooldown
+            # sidecar, unhide it too before calling vault.unlock() —
+            # otherwise vault.py's own successful-unlock cleanup
+            # (_reset_failed_attempts) looks for the plain filename and
+            # silently fails to find it, orphaning a hidden counter file
+            # forever once the next lock picks a different disguise name.
+            sidecar_path = revealed_path.parent / f"{revealed_path.name}{ATTEMPTS_SIDECAR_SUFFIX}"
+            hidden_sidecar_path = sidecar_path.parent / f".{sidecar_path.name}"
+            if hidden_sidecar_path.exists():
+                try:
+                    unhide_path(hidden_sidecar_path)
+                except HideError:
+                    pass  # best-effort; don't block the real unlock attempt over this
+
             restored_folder = vault_unlock(revealed_path, password)
     except VaultError as exc:
-        # Wrong password or corruption. vault.unlock() has NOT deleted 
-        # the file in this case (it only deletes on success), so the 
-        # disguised file is still sitting there; its disguised name never
-        # changed) so a failed attempt never leaves it exposed.
-
         if revealed_path is not None and revealed_path.exists():
             try:
                 hide_path(revealed_path)
             except Exception:
-                pass # best-effort; dont mask the real failure below
-
-            # vault.unlock() also writes a failed-attempt cooldown
-            # sidecar next to whatever filename it was called with -
-            # in this case, the still-boring disguised name, so it doesn't
-            # leak the vault's real identity. It's still plainly visible on its
-            # own, though, so hide it too for full concealment consistency.
+                pass
 
             sidecar_path = revealed_path.parent / f"{revealed_path.name}{ATTEMPTS_SIDECAR_SUFFIX}"
-
             if sidecar_path.exists():
                 try:
                     hide_path(sidecar_path)
                 except Exception:
                     pass
-
         console.print(f"[bold red]Unlock failed:[/bold red] {exc}")
         sys.exit(1)
     except HideError as exc:
@@ -345,9 +421,9 @@ def unlock(folder: str, fast: bool) -> None:
 
     console.print(f"[bold green]Restored:[/bold green] {restored_folder}")
 
-    # A deliberately rare, harmless joke on successful unlock.
-    if random.random() < 0.05:
-        _print_unlock_joke()
+    # A deliberately rare, harmless joke on successful unlock. Pure flavor.
+    if random.random() < RARE_JOKE_PROBABILITY:
+        _print_unlock_joke(jokes)
 
     
 

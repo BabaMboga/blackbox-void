@@ -16,6 +16,10 @@ from blackbox.config import (
     undisguise_vault,
     _load_disguise_config,
     _load_disguise_registry,
+    verify_vault_password,
+    record_vault_password,
+    forget_vault_password,
+    DISGUISE_REGISTRY_FILENAME,
 )
 
 # ----init_void(): the three-state lifecycle
@@ -335,3 +339,120 @@ def test_disguise_then_undisguise_round_trip(tmp_path):
 
     assert restored == original
     assert restored.read_text() == "the actual secret data"
+
+def test_init_void_detects_locked_vault_even_when_disguised(tmp_path):
+    """
+    This is the core regression test: init_void()must recognise a vault as locked even when it's
+    currently hidden and disguised under a completely different filename - not just when the plain
+    "<name>.vault" file happens to exist.
+    """
+    vault_file = tmp_path / "The Void.vault"
+    vault_file.write_text("pretend encrypted content")
+    disguised_path = disguise_vault(vault_file, base_path=tmp_path)
+
+    result = init_void(base_path=tmp_path)
+
+    assert result is None
+    assert not (tmp_path / "The Void").exists()
+
+def test_init_void_does_not_create_orphaned_second_vault(tmp_path):
+    """
+    The actual bug found in manual QA: locking, then having init_void() incorrectly create a fresh Void,
+    then locking again, silently orphaned the first vault's contents. This conifmrs that can no longer 
+    happen.
+    """
+    vault_file = tmp_path / "The Void.vault"
+    vault_file.write_text("first vault's content")
+    disguise_vault(vault_file, base_path=tmp_path)
+
+    # Previously, this would have wrongly created a fresh empty Void.
+    result = init_void(base_path=tmp_path)
+
+    assert result is None
+    # Confirm no plain "The Void" folder appeared alongside the still-locked (disguised/hidden) original.
+    assert not (tmp_path / "The Void").exists()
+
+def test_registry_file_is_hidden_on_windows(tmp_path, monkeypatch):
+    """
+    The registry maps a boring disguised name back to the vault's real identity - leaving it plainly readable
+    would undermine the disguise feature's own purpose, even though it doesnt weaaken the actual encryption.
+    On Windows specifically, the file needs its hidden attribute set explicitly, since its dotted filename 
+    doesn't hide anything there.
+    """
+
+    import platform
+    if platform.system() != "Windows":
+        pytest.skip("Windows-specific hiddent-attribute check")
+
+    vault_file = tmp_path / "The Void.vault"
+    vault_file.write_text("shh")
+    disguise_vault(vault_file, base_path=tmp_path)
+
+    registry_path = tmp_path / DISGUISE_REGISTRY_FILENAME
+    FILE_ATTRIBUTE_HIDDEN = 0x2
+    assert registry_path.stat().st_file_attributes & FILE_ATTRIBUTE_HIDDEN
+
+def test_verify_vault_password_returns_true_when_no_record_exists(tmp_path):
+    """
+    A vault's first-ever lock has nothing to compare against yet.
+    """
+    assert verify_vault_password("The Void", "anything", base_path=tmp_path) is True
+
+def test_record_then_verify_same_password_returns_true(tmp_path):
+    record_vault_password("The Void", "hunter2", base_path=tmp_path)
+    assert verify_vault_password("The Void", "hunter2", base_path=tmp_path) is True
+
+def test_record_then_verify_different_password_returns_false(tmp_path):
+    record_vault_password("The Void", "hunter2", base_path=tmp_path)
+    assert verify_vault_password("The Void", "wrongpassword", base_path=tmp_path) is False
+
+def test_record_vault_password_overwrites_previous_record(tmp_path):
+    record_vault_password("The Void","hunter2", base_path=tmp_path)
+    record_vault_password("The Void", "newpassword", base_path=tmp_path)
+
+    assert verify_vault_password("The Void", "newpassword", base_path=tmp_path) is True
+    assert verify_vault_password("The Void", "hunter2", base_path=tmp_path) is False
+
+def test_forget_vault_password_removes_record(tmp_path):
+    record_vault_password("The Void", "hunter2", base_path=tmp_path)
+    forget_vault_password("The Void", base_path=tmp_path)
+
+    # With no record, any password is accepted again (back to first-lock state).
+    assert verify_vault_password("The Void", "anything", base_path=tmp_path) is True
+
+def test_disguise_registry_never_creates_orphaned_undotted_file(tmp_path):
+    """Regression test: multiple saves of the disguise registry must
+    never leave behind an orphaned, undotted duplicate. This happened
+    previously because unhide_path()'s returned (renamed) path was
+    discarded, so a subsequent write_text() call recreated a fresh
+    file at the stale, still-dotted path while the actually-renamed
+    file sat there orphaned and visible.
+    """
+    vault_one = tmp_path / "vault_one.vault"
+    vault_one.write_text("first")
+    disguise_vault(vault_one, base_path=tmp_path)
+
+    vault_two = tmp_path / "vault_two.vault"
+    vault_two.write_text("second")
+    disguise_vault(vault_two, base_path=tmp_path)  # second registry save
+
+    registry_like_files = [
+        p.name for p in tmp_path.iterdir() if "disguise_registry" in p.name
+    ]
+    assert registry_like_files == [DISGUISE_REGISTRY_FILENAME]
+
+
+def test_vault_identity_never_creates_orphaned_undotted_file(tmp_path):
+    """Same regression class as the disguise registry — see that
+    test's docstring. Multiple saves of the vault-identity file must
+    not leave an orphaned undotted duplicate behind either.
+    """
+    record_vault_password("The Void", "hunter2", base_path=tmp_path)
+    record_vault_password("The Void", "newpassword", base_path=tmp_path)
+
+    identity_like_files = [
+        p.name for p in tmp_path.iterdir()
+        if "vault-identity" in p.name or "vault_identity" in p.name
+    ]
+    assert len(identity_like_files) == 1
+
